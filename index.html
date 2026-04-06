@@ -258,9 +258,12 @@
 
                 isConnected = true;
 
-                // Wake up droid
+                // Wake up droid - MUST target the Power Processor (0x11)
                 updateStatus("Waking up R2-D2...", "text-yellow-400");
-                await sendCmd(0x13, 0x0D, []); 
+                sendCmd(0x13, 0x0D, [], 0x11); 
+
+                // Give the droid's power rails half a second to boot up
+                await new Promise(resolve => setTimeout(resolve, 500));
 
                 updateStatus("LINK ESTABLISHED. R2-D2 is ready.", "text-green-400");
                 
@@ -269,7 +272,7 @@
                 document.getElementById('controlPanel').classList.remove('opacity-50');
 
                 // Set initial LED states upon connection
-                setTimeout(() => updateLEDs(), 500);
+                updateLEDs();
 
             } catch (error) {
                 console.error("GATT Error:", error);
@@ -290,8 +293,9 @@
             if (bluetoothDevice && bluetoothDevice.gatt.connected) {
                 if (controlChar) {
                     try {
-                        // Send Sleep command before disconnecting
-                        await sendCmd(0x13, 0x01, [0x20]); 
+                        // Send Sleep command to Power Processor (0x11) before disconnecting
+                        sendCmd(0x13, 0x01, [0x20], 0x11); 
+                        await new Promise(r => setTimeout(r, 200));
                     } catch(e) {}
                 }
                 bluetoothDevice.gatt.disconnect();
@@ -345,13 +349,13 @@
         }
 
         // CORE spherov2.js COMPATIBILITY FIX: 
-        // Sphero R2-D2 requires specific Target ID (0x12) and Source ID (0x01) for dual-processor routing.
-        function sendCmd(did, cid, data = []) {
+        // Sphero R2-D2 has dual processors. 
+        // targetId = 0x11 (Power/Radio), targetId = 0x12 (Motors/LEDs)
+        function sendCmd(did, cid, data = [], targetId = 0x12) {
             if (!controlChar) return;
 
             // Flags: 0x3A = requestsResponse(0x02) | isActivityTimeoutReset(0x08) | hasTargetId(0x10) | hasSourceId(0x20)
             const flags = 0x3A; 
-            const targetId = 0x12; // R2-D2 Main Processor Node
             const sourceId = 0x01; // Application Client Node
             const seq = seqNum;
             seqNum = (seqNum + 1) & 0xFF;
