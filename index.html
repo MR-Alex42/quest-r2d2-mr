@@ -25,7 +25,7 @@
             box-shadow: 0 0 20px rgba(34, 211, 238, 0.6);
         }
 
-        .active-anim {
+        .active-anim, .active-sound {
             background-color: #2563eb !important;
             border-color: #93c5fd !important;
             color: #ffffff !important;
@@ -91,7 +91,7 @@
         <!-- Top Row: Movement & Dome -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
             
-            <!-- Keyboard Drive -->
+            <!-- Manual Drive -->
             <div class="flex flex-col items-center gap-2 bg-gray-800/30 p-4 rounded-xl border border-cyan-900/30">
                 <p class="text-[10px] text-cyan-600 mb-2 uppercase tracking-widest font-bold">Manual Drive</p>
                 <div class="grid grid-cols-3 gap-2 w-40">
@@ -104,7 +104,7 @@
                 </div>
             </div>
 
-            <!-- Joystick Drive -->
+            <!-- Precision Pad -->
             <div class="flex flex-col items-center bg-gray-800/30 p-4 rounded-xl border border-cyan-900/30">
                 <p class="text-[10px] text-cyan-600 mb-2 uppercase tracking-widest font-bold">Precision Pad</p>
                 <div id="joystickArea" class="relative w-40 h-40 rounded-full border-4 border-cyan-900 flex items-center justify-center bg-gray-900 shadow-[inset_0_0_20px_rgba(6,182,212,0.1)] touch-none cursor-crosshair">
@@ -116,7 +116,7 @@
                 </div>
             </div>
 
-            <!-- Dome Control -->
+            <!-- Dome Servo -->
             <div class="flex flex-col items-center bg-gray-800/30 p-4 rounded-xl border border-cyan-900/30">
                 <p class="text-[10px] text-blue-400 mb-2 uppercase tracking-widest font-bold">Dome Servo</p>
                 <div class="flex flex-col w-full gap-4 items-center h-full justify-center">
@@ -136,7 +136,7 @@
             </div>
         </div>
 
-        <!-- Middle Row: Stance & 4x LED Groups -->
+        <!-- Middle Row: Stance & Lighting -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full border-t border-cyan-900/50 pt-6">
             
             <!-- Stance Control -->
@@ -155,38 +155,54 @@
                 </div>
             </div>
 
-            <!-- Quad LED Control -->
+            <!-- Optical Systems -->
             <div class="bg-gray-800/30 p-4 rounded-xl border border-cyan-900/30">
-                <p class="text-[10px] text-yellow-500 mb-3 uppercase tracking-widest font-bold text-center">Astromech Optical Systems</p>
+                <p class="text-[10px] text-yellow-500 mb-3 uppercase tracking-widest font-bold text-center">Optical Systems</p>
                 <div class="grid grid-cols-2 gap-x-6 gap-y-4">
-                    <!-- Multicolor 1 -->
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] text-cyan-600 uppercase font-bold">Front Logic (RGB)</label>
                         <input type="color" id="ledFrontLogic" value="#00aaff" oninput="updateLED('frontLogic')">
                     </div>
-                    <!-- Multicolor 2 -->
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] text-cyan-600 uppercase font-bold">Rear Logic (RGB)</label>
                         <input type="color" id="ledRearLogic" value="#ff0000" oninput="updateLED('rearLogic')">
                     </div>
-                    <!-- White 1 -->
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] text-cyan-600 uppercase font-bold">Front Holo (White)</label>
                         <input type="range" id="ledFrontHolo" min="0" max="255" value="128" oninput="updateLED('frontHolo')">
                     </div>
-                    <!-- White 2 -->
                     <div class="flex flex-col gap-1">
                         <label class="text-[9px] text-cyan-600 uppercase font-bold">Rear Holo (White)</label>
                         <input type="range" id="ledRearHolo" min="0" max="255" value="0" oninput="updateLED('rearHolo')">
                     </div>
                 </div>
             </div>
+        </div>
 
+        <!-- NEW: Audio Systems Panel -->
+        <div class="grid grid-cols-1 gap-6 w-full border-t border-cyan-900/50 pt-6">
+            <div class="bg-gray-800/30 p-4 rounded-xl border border-cyan-900/30 flex flex-col md:flex-row items-center gap-6">
+                <div class="w-full md:w-1/4">
+                    <p class="text-[10px] text-pink-500 mb-3 uppercase tracking-widest font-bold text-center md:text-left">Master Volume</p>
+                    <input type="range" id="masterVolume" min="0" max="255" value="128" oninput="updateVolume(this.value)" class="mb-2">
+                    <div class="flex justify-between text-[9px] text-pink-700 uppercase font-bold">
+                        <span>Mute</span>
+                        <span id="volLabel">50%</span>
+                        <span>Max</span>
+                    </div>
+                </div>
+                <div class="w-full md:w-3/4">
+                    <p class="text-[10px] text-pink-500 mb-3 uppercase tracking-widest font-bold text-center md:text-left">Sound Library</p>
+                    <div id="soundGrid" class="flex flex-wrap gap-2 justify-center md:justify-start">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Bottom Row: Animations -->
         <div class="flex flex-col items-center gap-4 w-full border-t border-cyan-900/50 pt-6">
-            <p class="text-[10px] text-blue-500 uppercase tracking-widest font-bold">Animatronic Library</p>
+            <p class="text-[10px] text-blue-500 uppercase tracking-widest font-bold">Animatronic Routines</p>
             <div id="animGrid" class="flex flex-wrap justify-center gap-2 max-w-5xl">
                 <!-- Dynamically populated -->
             </div>
@@ -239,9 +255,12 @@
                 document.getElementById('connectBtn').classList.add('hidden');
                 document.getElementById('disconnectBtn').classList.remove('hidden');
                 document.getElementById('controlPanel').classList.remove('opacity-50');
-                // Set initial states
+                
+                // Initial sync
                 setTimeout(() => {
-                    updateLED('frontLogic'); updateLED('rearLogic'); updateLED('frontHolo'); updateLED('rearHolo');
+                    updateLED('frontLogic'); updateLED('rearLogic'); 
+                    updateLED('frontHolo'); updateLED('rearHolo');
+                    updateVolume(128);
                 }, 500);
             } catch (error) {
                 if (error.name === 'SecurityError') document.getElementById('sandboxWarning').classList.remove('hidden');
@@ -295,48 +314,61 @@
             packetQueue.push(finalPacket); processQueue();
         }
 
-        // --- SPECIFIC LED MAPPING (R2-D2 4-LED SYSTEM) ---
+        // --- AUDIO SYSTEM COMMANDS ---
+        
+        let volumeThrottle = null;
+        function updateVolume(val) {
+            const vol = parseInt(val);
+            document.getElementById('volLabel').textContent = Math.round((vol / 255) * 100) + '%';
+            if (!isConnected) return;
+            if (volumeThrottle) clearTimeout(volumeThrottle);
+            volumeThrottle = setTimeout(() => {
+                // Device 0x1A (User IO), Cmd 0x08 (Set Master Volume)
+                sendCmd(0x1A, 0x08, [vol]);
+            }, 100);
+        }
+
+        function playSound(id) {
+            const el = document.getElementById(`sound-btn-${id}`);
+            if (el) { el.classList.add('active-sound'); setTimeout(() => el.classList.remove('active-sound'), 150); }
+            if (!isConnected) return;
+            // Device 0x1A (User IO), Cmd 0x07 (Play Sound)
+            // Payload: 2 bytes for Sound Index (MSB, LSB)
+            const msb = (id >> 8) & 0xFF;
+            const lsb = id & 0xFF;
+            sendCmd(0x1A, 0x07, [msb, lsb]);
+        }
+
+        // --- LED MAPPING ---
         
         let ledThrottle = {};
         function updateLED(type) {
             if (!isConnected) return;
             if (ledThrottle[type]) clearTimeout(ledThrottle[type]);
-            
             ledThrottle[type] = setTimeout(() => {
-                let mask = 0x00;
-                let r = 0, g = 0, b = 0;
-
+                let mask = 0x00, payload = [];
                 switch(type) {
                     case 'frontLogic':
                         mask = 0x01;
                         const colF = document.getElementById('ledFrontLogic').value;
-                        r = parseInt(colF.substring(1, 3), 16);
-                        g = parseInt(colF.substring(3, 5), 16);
-                        b = parseInt(colF.substring(5, 7), 16);
+                        payload = [parseInt(colF.substring(1,3),16), parseInt(colF.substring(3,5),16), parseInt(colF.substring(5,7),16)];
                         break;
                     case 'rearLogic':
                         mask = 0x02;
                         const colR = document.getElementById('ledRearLogic').value;
-                        r = parseInt(colR.substring(1, 3), 16);
-                        g = parseInt(colR.substring(3, 5), 16);
-                        b = parseInt(colR.substring(5, 7), 16);
+                        payload = [parseInt(colR.substring(1,3),16), parseInt(colR.substring(3,5),16), parseInt(colR.substring(5,7),16)];
                         break;
                     case 'frontHolo':
                         mask = 0x04;
-                        const valF = parseInt(document.getElementById('ledFrontHolo').value);
-                        r = g = b = valF; // White LED
+                        payload = [parseInt(document.getElementById('ledFrontHolo').value)];
                         break;
                     case 'rearHolo':
                         mask = 0x08;
-                        const valR = parseInt(document.getElementById('ledRearHolo').value);
-                        r = g = b = valR; // White LED
+                        payload = [parseInt(document.getElementById('ledRearHolo').value)];
                         break;
                 }
-
-                // Device 0x1A (User IO), Cmd 0x0E (Set All LEDs with 32-bit mask)
-                // Mask layout: [Byte 1, Byte 2, Byte 3, Byte 4, R, G, B]
-                sendCmd(0x1A, 0x0E, [0x00, 0x00, 0x00, mask, r, g, b]);
-            }, 50);
+                sendCmd(0x1A, 0x0E, [0x00, 0x00, 0x00, mask, ...payload]);
+            }, 60);
         }
 
         // --- STANCE & DOME ---
@@ -355,11 +387,9 @@
                 const buffer = new ArrayBuffer(4);
                 const view = new DataView(buffer);
                 view.setFloat32(0, parseFloat(angle), false); 
-                const bytes = Array.from(new Uint8Array(buffer));
-                sendCmd(0x17, 0x0F, bytes);
+                sendCmd(0x17, 0x0F, Array.from(new Uint8Array(buffer)));
             }, 60);
         }
-
         function resetDome() { document.getElementById('domeSlider').value = 0; updateDome(0); }
 
         // --- DRIVE LOGIC ---
@@ -373,25 +403,23 @@
             let x = 0, y = 0;
             if (keys.up) y -= 1; if (keys.down) y += 1;
             if (keys.left) x -= 1; if (keys.right) x += 1;
-
             if (x === 0 && y === 0) { currentSpeed = 0; } 
             else {
                 currentSpeed = 100;
                 currentHeading = Math.atan2(y, x) * (180 / Math.PI) + 90;
                 if (currentHeading < 0) currentHeading += 360;
             }
-
             const arrow = document.getElementById('headingArrow');
             arrow.style.transform = `rotate(${currentHeading}deg)`;
             arrow.style.opacity = currentSpeed > 0 ? '1' : '0.3';
-
             if (isConnected && (currentSpeed !== lastSpeed || currentHeading !== lastHeading)) {
                 lastSpeed = currentSpeed; lastHeading = currentHeading;
                 sendDriveCommand(currentSpeed, Math.round(currentHeading));
             }
         }
 
-        // --- ANIMATIONS ---
+        // --- DYNAMIC UI POPULATION ---
+
         function triggerAnim(id) {
             const el = document.getElementById(`anim-btn-${id}`);
             if (el) { el.classList.add('active-anim'); setTimeout(() => el.classList.remove('active-anim'), 150); }
@@ -399,19 +427,37 @@
         }
 
         const animNames = {
-            0: "Wake", 1: "Alarm", 2: "Angry", 3: "Annoyed", 4: "Chatty", 6: "Excited", 7: "Frustrated", 
-            8: "Happy", 9: "Laugh", 10: "Sad", 11: "Scared", 12: "Sleep", 14: "Yes", 
-            15: "Laugh 2", 19: "Scan", 21: "Affirmative", 23: "Diagnostics", 24: "Power Down"
+            0: "Wake", 1: "Alarm", 2: "Angry", 3: "Annoyed", 4: "Chatty", 5: "Drive", 6: "Excited",
+            7: "Frustrated", 8: "Happy", 9: "Laugh", 10: "Sad", 11: "Scared", 12: "Sleep", 13: "Happy 2",
+            14: "Yes", 15: "Laugh 2", 16: "Idle 1", 17: "Idle 2", 18: "Idle 3", 19: "Scan", 
+            20: "Patrol", 21: "Affirm", 22: "Scan 2", 23: "Diagnostics", 24: "Off"
         };
 
-        const grid = document.getElementById('animGrid');
+        const soundNames = {
+            1: "Affirm", 2: "Alarm", 3: "Angry", 4: "Annoy", 5: "Beep", 6: "Chat", 7: "Doubt",
+            8: "Excite", 9: "Frust", 10: "Giggle", 11: "Happy", 12: "Hum", 13: "Laugh", 14: "Long",
+            15: "Mourn", 16: "No", 17: "Ouch", 18: "Sad", 19: "Scream", 20: "Short", 21: "Sing",
+            22: "Surp", 23: "Talk", 24: "Wait", 25: "Yes"
+        };
+
+        const animGrid = document.getElementById('animGrid');
         for (let i = 0; i <= 24; i++) {
             const btn = document.createElement('button');
             btn.id = `anim-btn-${i}`;
             btn.className = "px-2 py-2 bg-gray-800 border border-blue-900 rounded text-center text-[9px] font-bold transition-all hover:bg-gray-700 text-blue-200 w-24 uppercase";
             btn.textContent = animNames[i] || `Anim ${i}`;
             btn.onclick = () => triggerAnim(i);
-            grid.appendChild(btn);
+            animGrid.appendChild(btn);
+        }
+
+        const soundGrid = document.getElementById('soundGrid');
+        for (let i = 1; i <= 25; i++) {
+            const btn = document.createElement('button');
+            btn.id = `sound-btn-${i}`;
+            btn.className = "px-2 py-2 bg-gray-800 border border-pink-900 rounded text-center text-[8px] font-bold transition-all hover:bg-gray-700 text-pink-200 w-16 uppercase";
+            btn.textContent = soundNames[i] || `SND ${i}`;
+            btn.onclick = () => playSound(i);
+            soundGrid.appendChild(btn);
         }
 
         // --- JOYSTICK LOGIC ---
@@ -427,7 +473,6 @@
             const dx = clientX - centerX, dy = clientY - centerY, maxRadius = rect.width / 2;
             let distance = Math.sqrt(dx * dx + dy * dy), angleRad = Math.atan2(dy, dx);
             joystickNub.style.transform = `translate(${Math.cos(angleRad) * Math.min(distance, maxRadius)}px, ${Math.sin(angleRad) * Math.min(distance, maxRadius)}px)`;
-            
             const deadzone = maxRadius * 0.1;
             if (distance < deadzone) { currentSpeed = 0; } 
             else {
