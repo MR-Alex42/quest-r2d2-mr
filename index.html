@@ -118,35 +118,46 @@
                 this.ANTIDOS_UUID = '00020005-574f-4f20-5370-6865726f2121';
             }
 
+            // Cross-platform helper to safely map GATT services
+            async getServiceWithRetry(uuid, retries = 4) {
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        return await this.server.getPrimaryService(uuid);
+                    } catch (error) {
+                        if (error.name === 'NotFoundError' && i < retries - 1) {
+                            this.statusEl.innerText = `Status: GATT mapping... (Attempt ${i + 1})`;
+                            await new Promise(r => setTimeout(r, 600)); // wait before retrying
+                        } else {
+                            throw error; // out of retries, throw it
+                        }
+                    }
+                }
+            }
+
             async connect(statusElement) {
                 this.statusEl = statusElement;
                 try {
                     this.statusEl.innerText = "Status: Requesting Bluetooth (Select your Droid)...";
                     
                     // Request device from browser (Looks for R2-D2 or D2-xx identifiers)
-                    // We must request BOTH services upfront, otherwise we get Permission errors later
                     this.device = await navigator.bluetooth.requestDevice({
                         filters: [{ namePrefix: 'R2-' }, { namePrefix: 'D2-' }, { namePrefix: 'D2' }],
                         optionalServices: [this.CONTROL_SERVICE_UUID, this.ANTIDOS_SERVICE_UUID]
                     });
 
-                    // Add disconnect listener to catch Windows dropping the connection or manual disconnects
+                    // Add disconnect listener to catch Windows/Android dropping the connection or manual disconnects
                     this.device.addEventListener('gattserverdisconnected', this.onDisconnected.bind(this));
 
                     this.statusEl.innerText = "Status: Device selected! Connecting to GATT Server...";
                     this.server = await this.device.gatt.connect();
 
-                    this.statusEl.innerText = "Status: GATT connected! Waiting for Windows to map services...";
-                    
-                    // Delay to let Windows enumerate the GATT table
-                    await new Promise(r => setTimeout(r, 1500));
-
                     this.statusEl.innerText = "Status: Fetching Anti-DOS Service...";
-                    const antiDosService = await this.server.getPrimaryService(this.ANTIDOS_SERVICE_UUID);
+                    // Use smart retry loop for cross-platform compatibility (Windows vs Quest/Android)
+                    const antiDosService = await this.getServiceWithRetry(this.ANTIDOS_SERVICE_UUID);
                     this.antiDosChar = await antiDosService.getCharacteristic(this.ANTIDOS_UUID);
 
                     this.statusEl.innerText = "Status: Fetching Control Service...";
-                    const controlService = await this.server.getPrimaryService(this.CONTROL_SERVICE_UUID);
+                    const controlService = await this.getServiceWithRetry(this.CONTROL_SERVICE_UUID);
                     this.apiChar = await controlService.getCharacteristic(this.API_UUID);
 
                     this.statusEl.innerText = "Status: Sending Unlock/Anti-DOS Handshake...";
