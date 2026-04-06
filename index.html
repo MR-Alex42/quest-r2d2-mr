@@ -42,6 +42,7 @@
         <p>Ensure your Sphero R2D2 is charged, nearby, and turned on. <br>
            Click below to pair via Bluetooth, then enter Mixed Reality.</p>
         <button id="connectBtn">Connect to R2D2</button>
+        <button id="disconnectBtn" style="display: none; background: linear-gradient(45deg, #ff416c, #ff4b2b); font-size: 1.2rem; padding: 10px 30px;">Disconnect</button>
         <button id="skipBtn" style="background: linear-gradient(45deg, #888, #aaa); margin-top: 10px; font-size: 1.2rem; padding: 10px 30px;">Test in VR (No Bluetooth)</button>
         <div id="status">Status: Waiting for connection...</div>
         
@@ -105,6 +106,7 @@
                 this.seq = 0x00;
                 this.connected = false;
                 this.statusEl = null;
+                this.onDisconnectCallback = null;
 
                 // Sphero BLE UUIDs
                 // 1. Control Service & API
@@ -128,7 +130,7 @@
                         optionalServices: [this.CONTROL_SERVICE_UUID, this.ANTIDOS_SERVICE_UUID]
                     });
 
-                    // Add disconnect listener to catch Windows dropping the connection
+                    // Add disconnect listener to catch Windows dropping the connection or manual disconnects
                     this.device.addEventListener('gattserverdisconnected', this.onDisconnected.bind(this));
 
                     this.statusEl.innerText = "Status: Device selected! Connecting to GATT Server...";
@@ -177,11 +179,21 @@
                 }
             }
 
+            disconnect() {
+                if (this.device && this.device.gatt.connected) {
+                    this.statusEl.innerText = "Status: Disconnecting...";
+                    this.device.gatt.disconnect();
+                }
+            }
+
             onDisconnected(event) {
                 this.connected = false;
                 console.warn('Bluetooth Device disconnected', event);
                 if (this.statusEl) {
-                    this.statusEl.innerHTML = `Status: Disconnected.<br><span style="font-size:0.9em; color:#ffaa00;">The device dropped the connection. On Windows, this often happens if a ghost pairing still exists.</span>`;
+                    this.statusEl.innerHTML = `Status: Disconnected.<br><span style="font-size:0.9em; color:#ffaa00;">The device connection was closed.</span>`;
+                }
+                if (typeof this.onDisconnectCallback === 'function') {
+                    this.onDisconnectCallback();
                 }
             }
 
@@ -245,6 +257,7 @@
         
         // --- UI Interactions ---
         const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
         const skipBtn = document.getElementById('skipBtn');
         const enterARBtn = document.getElementById('enterARBtn');
         const statusEl = document.getElementById('status');
@@ -256,6 +269,17 @@
             statusEl.innerHTML = `Status: Preview Mode Active.<br><span style="font-size:0.9em; color:#ffaa00;">Bluetooth is blocked inside embedded previews. Use "Test in VR" below, or export the file to run it properly.</span>`;
         }
 
+        // Handle UI resets on disconnect
+        r2d2.onDisconnectCallback = () => {
+            connectBtn.style.display = 'inline-block';
+            connectBtn.disabled = false;
+            disconnectBtn.style.display = 'none';
+            enterARBtn.style.display = 'none';
+            if (window.self === window.top) {
+                skipBtn.style.display = 'inline-block';
+            }
+        };
+
         connectBtn.addEventListener('click', async () => {
             connectBtn.disabled = true;
             skipBtn.style.display = 'none';
@@ -263,10 +287,17 @@
             if (success) {
                 enterARBtn.style.display = 'block';
                 connectBtn.style.display = 'none';
+                disconnectBtn.style.display = 'inline-block';
             } else {
                 connectBtn.disabled = false;
-                skipBtn.style.display = 'inline-block';
+                if (window.self === window.top) {
+                    skipBtn.style.display = 'inline-block';
+                }
             }
+        });
+
+        disconnectBtn.addEventListener('click', () => {
+            r2d2.disconnect();
         });
 
         skipBtn.addEventListener('click', () => {
