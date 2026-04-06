@@ -56,21 +56,11 @@
         
         select option {
             background-color: #1e293b;
-        }
-        select.border-pink-900 option {
             color: #fbcfe8;
         }
-        select.border-pink-900 optgroup {
+        select optgroup {
             background-color: #0f172a;
             color: #ec4899;
-            font-weight: bold;
-        }
-        select.border-blue-900 option {
-            color: #bfdbfe;
-        }
-        select.border-blue-900 optgroup {
-            background-color: #0f172a;
-            color: #3b82f6;
             font-weight: bold;
         }
     </style>
@@ -178,21 +168,19 @@
             </div>
         </div>
 
-        <!-- Audio & Animations Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full border-t border-cyan-900/50 pt-4">
-            
-            <!-- Audio Panel -->
-            <div class="bg-gray-800/30 p-4 rounded-xl border border-cyan-900/30 flex flex-col gap-4">
-                <div class="w-full">
+        <!-- Audio Section -->
+        <div class="w-full border-t border-cyan-900/50 pt-4">
+            <div class="bg-gray-800/30 p-4 rounded-xl border border-cyan-900/30 flex flex-col md:flex-row items-center gap-6">
+                <div class="w-full md:w-1/4">
                     <p class="text-[10px] text-pink-500 mb-2 uppercase tracking-widest font-bold">Speaker Volume</p>
                     <input type="range" id="masterVolume" min="0" max="255" value="128" oninput="updateVolume(this.value)">
                     <div class="flex justify-between text-[8px] text-pink-700 uppercase font-bold mt-1">
                         <span>Mute</span><span id="volLabel">50%</span><span>Max</span>
                     </div>
                 </div>
-                <div class="w-full">
+                <div class="w-full md:w-3/4 flex flex-col items-center md:items-start">
                     <p class="text-[10px] text-pink-500 mb-2 uppercase tracking-widest font-bold">Audio Library Banks</p>
-                    <div class="flex gap-2 w-full">
+                    <div class="flex gap-2 w-full max-w-md">
                         <select id="soundSelect" class="flex-1 bg-gray-900 border border-pink-900 rounded-md text-[10px] font-bold text-pink-200 p-3 uppercase focus:outline-none focus:border-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.1)]">
                             <!-- Dynamically populated from raw data -->
                         </select>
@@ -202,22 +190,12 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Animations Panel -->
-            <div class="bg-gray-800/30 p-4 rounded-xl border border-cyan-900/30 flex flex-col gap-4 justify-end">
-                <div class="w-full h-full flex flex-col justify-end">
-                    <p class="text-[10px] text-blue-500 mb-2 uppercase tracking-widest font-bold">Astromech Routines (Animations)</p>
-                    <div class="flex gap-2 w-full">
-                        <select id="animSelect" class="flex-1 bg-gray-900 border border-blue-900 rounded-md text-[10px] font-bold text-blue-200 p-3 uppercase focus:outline-none focus:border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
-                            <!-- Dynamically populated from raw data -->
-                        </select>
-                        <button onclick="playSelectedAnim()" id="animBtn" class="px-6 py-2 bg-blue-950 border border-blue-700 rounded-md text-[10px] font-bold text-blue-100 hover:bg-blue-800 transition-colors uppercase shadow-[0_0_10px_rgba(59,130,246,0.2)]">
-                            Execute
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
+        <!-- Animations Section -->
+        <div class="flex flex-col items-center gap-2 w-full border-t border-cyan-900/50 pt-4">
+            <p class="text-[10px] text-blue-500 uppercase tracking-widest font-bold">Astromech Routines</p>
+            <div id="animGrid" class="flex flex-wrap justify-center gap-1 max-w-5xl"></div>
         </div>
 
     </main>
@@ -375,17 +353,6 @@
             setTimeout(() => btn.classList.remove('active-sound'), 150);
             
             playSound(id);
-        }
-
-        function playSelectedAnim() {
-            const select = document.getElementById('animSelect');
-            const id = parseInt(select.value);
-            
-            const btn = document.getElementById('animBtn');
-            btn.classList.add('active-anim');
-            setTimeout(() => btn.classList.remove('active-anim'), 150);
-            
-            if (isConnected) sendCmd(0x17, 0x05, [0x00, id]);
         }
 
         // --- STANCE & DOME ---
@@ -845,88 +812,14 @@ BB9E_HEAD_TURN_3 5513`;
         });
 
         // --- ANIMATIONS DYNAMIC UI ---
-        const rawAnims = `CHARGER_1 0
-CHARGER_2 1
-CHARGER_3 2
-CHARGER_4 3
-CHARGER_5 4
-CHARGER_6 5
-CHARGER_7 6
-EMOTE_ALARM 7
-EMOTE_ANGRY 8
-EMOTE_ANNOYED 9
-EMOTE_CHATTY 10
-EMOTE_DRIVE 11
-EMOTE_EXCITED 12
-EMOTE_HAPPY 13
-EMOTE_ION_BLAST 14
-EMOTE_LAUGH 15
-EMOTE_NO 16
-EMOTE_SAD 17
-EMOTE_SASSY 18
-EMOTE_SCARED 19
-EMOTE_SPIN 20
-EMOTE_YES 21
-EMOTE_SCAN 22
-EMOTE_SLEEP 23
-EMOTE_SURPRISED 24
-IDLE_1 25
-IDLE_2 26
-IDLE_3 27
-PATROL_ALARM 28
-PATROL_HIT 29
-PATROL_PATROLLING 30
-WWM_ANGRY 31
-WWM_ANXIOUS 32
-WWM_BOW 33
-WWM_CONCERN 34
-WWM_CURIOUS 35
-WWM_DOUBLE_TAKE 36
-WWM_EXCITED 37
-WWM_FIERY 38
-WWM_FRUSTRATED 39
-WWM_HAPPY 40
-WWM_JITTERY 41
-WWM_LAUGH 42
-WWM_LONG_SHAKE 43
-WWM_NO 44
-WWM_OMINOUS 45
-WWM_RELIEVED 46
-WWM_SAD 47
-WWM_SCARED 48
-WWM_SHAKE 49
-WWM_SURPRISED 50
-WWM_TAUNTING 51
-WWM_WHISPER 52
-WWM_YELLING 53
-WWM_YOOHOO 54
-MOTOR 55`;
-
-        const animSelect = document.getElementById('animSelect');
-        let currentAnimGroup = '';
-        let animOptgroup = null;
-
-        rawAnims.trim().split('\n').forEach(line => {
-            const [rawName, id] = line.trim().split(' ');
-            if (!rawName || !id) return;
-            
-            const prefixMatch = rawName.match(/^([A-Z]+)_/);
-            const prefix = prefixMatch ? prefixMatch[1] : 'MISC';
-
-            if (prefix !== currentAnimGroup) {
-                currentAnimGroup = prefix;
-                animOptgroup = document.createElement('optgroup');
-                animOptgroup.label = `--- ${currentAnimGroup} ANIMATIONS ---`;
-                animSelect.appendChild(animOptgroup);
-            }
-            
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = rawName.replace(prefix + '_', '').replace(/_/g, ' ');
-            
-            if (rawName === 'EMOTE_HAPPY') option.selected = true;
-            
-            animOptgroup.appendChild(option);
+        const anims = ["Wake", "Alarm", "Angry", "Annoy", "Chatty", "Drive", "Excite", "Frust", "Happy", "Laugh", "Sad", "Scare", "Sleep", "Happy 2", "Yes", "Laugh 2", "Idle 1", "Idle 2", "Idle 3", "Scan", "Patrol", "Affirm", "Scan 2", "Check", "Off"];
+        
+        anims.forEach((name, i) => {
+            const btn = document.createElement('button');
+            btn.className = "px-2 py-2 bg-gray-800 border border-blue-900 rounded text-[8px] font-bold transition-all text-blue-200 w-20 uppercase";
+            btn.textContent = name;
+            btn.onclick = () => { if(isConnected) sendCmd(0x17, 0x05, [0x00, i]); };
+            document.getElementById('animGrid').appendChild(btn);
         });
 
         // --- GENTLE JOYSTICK LOGIC ---
