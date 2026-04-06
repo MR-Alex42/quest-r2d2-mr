@@ -170,7 +170,12 @@
                 </div>
                 <div class="w-full md:w-3/4">
                     <p class="text-[10px] text-pink-500 mb-2 uppercase tracking-widest font-bold">Audio Library (R2-D2 Voice Banks)</p>
-                    <div id="soundGrid" class="flex flex-wrap gap-1 justify-center md:justify-start"></div>
+                    <div class="flex gap-2 w-full max-w-md">
+                        <select id="soundSelect" class="w-full bg-gray-800 border border-pink-900 rounded text-xs font-bold text-pink-200 p-2 uppercase focus:outline-none focus:border-pink-500">
+                            <!-- Options populated by JS -->
+                        </select>
+                        <button id="playSoundBtn" class="px-6 py-2 bg-pink-900/80 border border-pink-700/50 rounded font-bold text-xs uppercase tracking-widest text-pink-100 hover:bg-pink-800 transition-colors">Play</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -420,7 +425,7 @@
         anims.forEach((anim) => {
             const option = document.createElement('option');
             option.value = anim.id;
-            option.textContent = anim.name.replace(/_/g, ' '); // Cleaned up the underscores for readability
+            option.textContent = anim.name.replace(/_/g, ' '); 
             animSelect.appendChild(option);
         });
 
@@ -432,26 +437,72 @@
         });
 
         const sounds = [
-            { name: "Alarm", id: 1737 }, { name: "Annoyed", id: 1910 }, { name: "Burnout", id: 1915 },
-            { name: "Chatty", id: 1950 }, { name: "Hyperdrive", id: 2586 }, { name: "Excited", id: 2600 },
-            { name: "Head Spin", id: 2797 }, { name: "Hey!", id: 2813 }, { name: "Laugh", id: 2919 },
-            { name: "Negative", id: 3101 }, { name: "Positive", id: 3302 }, { name: "Sad", id: 3484 },
-            { name: "Scream", id: 3797 }, { name: "Short Out", id: 3825 }, { name: "Access", id: 1704 },
-            { name: "Patrol Hit", id: 1623 }
+            { name: "TEST_1497HZ", id: 1 }, { name: "TEST_200HZ", id: 32 }, { name: "TEST_2517HZ", id: 63 }, { name: "TEST_3581HZ", id: 94 }, { name: "TEST_431HZ", id: 125 }, { name: "TEST_6011HZ", id: 156 }, { name: "TEST_853HZ", id: 187 },
+            { name: "BB8_ALARM_1", id: 218 }, { name: "BB8_ALARM_10", id: 235 }, { name: "BB8_ALARM_11", id: 254 }, { name: "BB8_ALARM_12", id: 258 }, { name: "BB8_ALARM_2", id: 264 }, { name: "BB8_ALARM_3", id: 268 }, { name: "BB8_ALARM_4", id: 272 }, { name: "BB8_ALARM_6", id: 279 }, { name: "BB8_ALARM_7", id: 288 }, { name: "BB8_ALARM_8", id: 296 }, { name: "BB8_ALARM_9", id: 301 },
+            { name: "BB8_BOOT_UP", id: 309 }, { name: "BB8_BOOR_UP_2", id: 330 },
+            { name: "BB8_CHATTY_1", id: 352 }, { name: "BB8_CHATTY_10", id: 356 }, { name: "BB8_CHATTY_11", id: 360 }, { name: "BB8_CHATTY_12", id: 368 }, { name: "BB8_CHATTY_13", id: 375 }, { name: "BB8_CHATTY_14", id: 381 }, { name: "BB8_CHATTY_15", id: 390 }, { name: "BB8_CHATTY_16", id: 397 }, { name: "BB8_CHATTY_17", id: 404 }, { name: "BB8_CHATTY_18", id: 410 }, { name: "BB8_CHATTY_19", id: 417 }, { name: "BB8_CHATTY_2", id: 430 }, { name: "BB8_CHATTY_20", id: 464 }, { name: "BB8_CHATTY_22", id: 471 }, { name: "BB8_CHATTY_23", id: 479 }, { name: "BB8_CHATTY_24", id: 492 }, { name: "BB8_CHATTY_25", id: 518 }, { name: "BB8_CHATTY_26", id: 525 }, { name: "BB8_CHATTY_27", id: 537 }, { name: "BB8_CHATTY_3", id: 544 }, { name: "BB8_CHATTY_4", id: 557 }, { name: "BB8_CHATTY_5", id: 570 }, { name: "BB8_CHATTY_6", id: 577 }, { name: "BB8_CHATTY_7", id: 581 }, { name: "BB8_CHATTY_8", id: 587 }, { name: "BB8_CHATTY_9", id: 599 },
+            { name: "BB8_DONT_KNOW", id: 606 },
+            { name: "BB8_EXCITED_1", id: 612 }, { name: "BB8_EXCITED_2", id: 622 }, { name: "BB8_EXCITED_3", id: 630 }, { name: "BB8_EXCITED_4", id: 644 },
+            { name: "BB8_HEY_1", id: 671 }, { name: "BB8_HEY_10", id: 682 }, { name: "BB8_HEY_11", id: 686 }, { name: "BB8_HEY_12", id: 690 }, { name: "BB8_HEY_13", id: 700 }, { name: "BB8_HEY_2", id: 724 }, { name: "BB8_HEY_3", id: 732 }, { name: "BB8_HEY_4", id: 734 }, { name: "BB8_HEY_5", id: 739 }, { name: "BB8_HEY_6", id: 743 }, { name: "BB8_HEY_7", id: 747 }, { name: "BB8_HEY_8", id: 753 }, { name: "BB8_HEY_9", id: 757 },
+            { name: "BB8_LAUGH_1", id: 761 }, { name: "BB8_LAUGH_2", id: 764 },
+            { name: "BB8_NEGATIVE_1", id: 787 }, { name: "BB8_NEGATIVE_10", id: 792 }, { name: "BB8_NEGATIVE_11", id: 802 }, { name: "BB8_NEGATIVE_12", id: 813 }, { name: "BB8_NEGATIVE_13", id: 825 }, { name: "BB8_NEGATIVE_14", id: 831 }, { name: "BB8_NEGATIVE_15", id: 836 }, { name: "BB8_NEGATIVE_16", id: 859 }, { name: "BB8_NEGATIVE_17", id: 867 }, { name: "BB8_NEGATIVE_18", id: 874 }, { name: "BB8_NEGATIVE_19", id: 888 }, { name: "BB8_NEGATIVE_2", id: 896 }, { name: "BB8_NEGATIVE_20", id: 902 }, { name: "BB8_NEGATIVE_21", id: 916 }, { name: "BB8_NEGATIVE_22", id: 927 }, { name: "BB8_NEGATIVE_23", id: 935 }, { name: "BB8_NEGATIVE_24", id: 946 }, { name: "BB8_NEGATIVE_25", id: 953 }, { name: "BB8_NEGATIVE_26", id: 963 }, { name: "BB8_NEGATIVE_27", id: 969 }, { name: "BB8_NEGATIVE_28", id: 983 }, { name: "BB8_NEGATIVE_29", id: 988 }, { name: "BB8_NEGATIVE_3", id: 998 }, { name: "BB8_NEGATIVE_30", id: 1003 }, { name: "BB8_NEGATIVE_4", id: 1010 }, { name: "BB8_NEGATIVE_5", id: 1020 }, { name: "BB8_NEGATIVE_6", id: 1032 }, { name: "BB8_NEGATIVE_7", id: 1040 }, { name: "BB8_NEGATIVE_8", id: 1052 }, { name: "BB8_NEGATIVE_9", id: 1064 },
+            { name: "BB8_POSITIVE_1", id: 1077 }, { name: "BB8_POSITIVE_10", id: 1082 }, { name: "BB8_POSITIVE_11", id: 1087 }, { name: "BB8_POSITIVE_12", id: 1092 }, { name: "BB8_POSITIVE_13", id: 1096 }, { name: "BB8_POSITIVE_14", id: 1102 }, { name: "BB8_POSITIVE_15", id: 1109 }, { name: "BB8_POSITIVE_16", id: 1113 }, { name: "BB8_POSITIVE_2", id: 1118 }, { name: "BB8_POSITIVE_3", id: 1123 }, { name: "BB8_POSITIVE_4", id: 1130 }, { name: "BB8_POSITIVE_5", id: 1135 }, { name: "BB8_POSITIVE_6", id: 1138 }, { name: "BB8_POSITIVE_7", id: 1147 }, { name: "BB8_POSITIVE_8", id: 1150 }, { name: "BB8_POSITIVE_9", id: 1157 },
+            { name: "BB8_SAD_1", id: 1163 }, { name: "BB8_SAD_10", id: 1170 }, { name: "BB8_SAD_11", id: 1178 }, { name: "BB8_SAD_12", id: 1186 }, { name: "BB8_SAD_13", id: 1192 }, { name: "BB8_SAD_14", id: 1199 }, { name: "BB8_SAD_15", id: 1205 }, { name: "BB8_SAD_16", id: 1213 }, { name: "BB8_SAD_17", id: 1220 }, { name: "BB8_SAD_18", id: 1230 }, { name: "BB8_SAD_2", id: 1236 }, { name: "BB8_SAD_3", id: 1240 }, { name: "BB8_SAD_4", id: 1250 }, { name: "BB8_SAD_5", id: 1268 }, { name: "BB8_SAD_6", id: 1275 }, { name: "BB8_SAD_7", id: 1281 }, { name: "BB8_SAD_8", id: 1295 }, { name: "BB8_SAD_9", id: 1303 },
+            { name: "BB8_SHORTCUT", id: 1308 }, { name: "BB8_WOW_1", id: 1324 },
+            { name: "BB9E_ALARM_1", id: 1329 }, { name: "BB9E_ALARM_2", id: 1347 }, { name: "BB9E_ALARM_3", id: 1363 }, { name: "BB9E_ALARM_4", id: 1375 }, { name: "BB9E_ALARM_5", id: 1384 },
+            { name: "BB9E_CHATTY_1", id: 1394 }, { name: "BB9E_CHATTY_2", id: 1408 },
+            { name: "BB9E_EXCITED_1", id: 1432 }, { name: "BB9E_EXCITED_2", id: 1442 }, { name: "BB9E_EXCITED_3", id: 1463 },
+            { name: "BB9E_HEY_1", id: 1476 }, { name: "BB9E_HEY_2", id: 1486 },
+            { name: "BB9E_NEGATIVE_1", id: 1494 }, { name: "BB9E_NEGATIVE_2", id: 1505 }, { name: "BB9E_NEGATIVE_3", id: 1516 }, { name: "BB9E_NEGATIVE_4", id: 1523 },
+            { name: "BB9E_POSITIVE_1", id: 1531 }, { name: "BB9E_POSITIVE_2", id: 1549 }, { name: "BB9E_POSITIVE_3", id: 1558 }, { name: "BB9E_POSITIVE_4", id: 1571 }, { name: "BB9E_POSITIVE_5", id: 1583 },
+            { name: "BB9E_SAD_1", id: 1592 }, { name: "BB9E_SAD_2", id: 1600 },
+            { name: "R2_FALL", id: 1609 },
+            { name: "R2_HIT_1", id: 1623 }, { name: "R2_HIT_10", id: 1628 }, { name: "R2_HIT_11", id: 1635 }, { name: "R2_HIT_2", id: 1642 }, { name: "R2_HIT_3", id: 1647 }, { name: "R2_HIT_4", id: 1653 }, { name: "R2_HIT_5", id: 1659 }, { name: "R2_HIT_6", id: 1664 }, { name: "R2_HIT_7", id: 1669 }, { name: "R2_HIT_8", id: 1676 }, { name: "R2_HIT_9", id: 1684 },
+            { name: "R2_STEP_1", id: 1690 }, { name: "R2_STEP_2", id: 1693 }, { name: "R2_STEP_3", id: 1696 }, { name: "R2_STEP_4", id: 1698 }, { name: "R2_STEP_5", id: 1700 }, { name: "R2_STEP_6", id: 1702 },
+            { name: "R2_ACCESS_PANELS", id: 1704 },
+            { name: "R2_ALARM_1", id: 1737 }, { name: "R2_ALARM_10", id: 1747 }, { name: "R2_ALARM_12", id: 1756 }, { name: "R2_ALARM_13", id: 1763 }, { name: "R2_ALARM_14", id: 1771 }, { name: "R2_ALARM_15", id: 1784 }, { name: "R2_ALARM_16", id: 1791 }, { name: "R2_ALARM_2", id: 1809 }, { name: "R2_ALARM_3", id: 1821 }, { name: "R2_ALARM_4", id: 1831 }, { name: "R2_ALARM_5", id: 1835 }, { name: "R2_ALARM_6", id: 1843 }, { name: "R2_ALARM_7", id: 1858 }, { name: "R2_ALARM_8", id: 1867 }, { name: "R2_ALARM_9", id: 1893 },
+            { name: "R2_ANNOYED", id: 1910 }, { name: "R2_BURNOUT", id: 1915 },
+            { name: "R2_CHATTY_1", id: 1950 }, { name: "R2_CHATTY_10", id: 1959 }, { name: "R2_CHATTY_11", id: 1966 }, { name: "R2_CHATTY_12", id: 1977 }, { name: "R2_CHATTY_13", id: 1987 }, { name: "R2_CHATTY_14", id: 2002 }, { name: "R2_CHATTY_15", id: 2007 }, { name: "R2_CHATTY_16", id: 2010 }, { name: "R2_CHATTY_17", id: 2019 }, { name: "R2_CHATTY_18", id: 2028 }, { name: "R2_CHATTY_19", id: 2039 }, { name: "R2_CHATTY_2", id: 2061 }, { name: "R2_CHATTY_20", id: 2072 }, { name: "R2_CHATTY_21", id: 2080 }, { name: "R2_CHATTY_22", id: 2085 }, { name: "R2_CHATTY_23", id: 2095 }, { name: "R2_CHATTY_24", id: 2105 }, { name: "R2_CHATTY_25", id: 2121 }, { name: "R2_CHATTY_26", id: 2132 }, { name: "R2_CHATTY_27", id: 2143 }, { name: "R2_CHATTY_28", id: 2157 }, { name: "R2_CHATTY_29", id: 2170 }, { name: "R2_CHATTY_3", id: 2174 }, { name: "R2_CHATTY_30", id: 2184 }, { name: "R2_CHATTY_31", id: 2188 }, { name: "R2_CHATTY_32", id: 2198 }, { name: "R2_CHATTY_33", id: 2202 }, { name: "R2_CHATTY_34", id: 2211 }, { name: "R2_CHATTY_35", id: 2221 }, { name: "R2_CHATTY_36", id: 2232 }, { name: "R2_CHATTY_37", id: 2241 }, { name: "R2_CHATTY_38", id: 2253 }, { name: "R2_CHATTY_39", id: 2264 }, { name: "R2_CHATTY_4", id: 2276 }, { name: "R2_CHATTY_40", id: 2285 }, { name: "R2_CHATTY_41", id: 2292 }, { name: "R2_CHATTY_42", id: 2307 }, { name: "R2_CHATTY_43", id: 2322 }, { name: "R2_CHATTY_44", id: 2332 }, { name: "R2_CHATTY_45", id: 2344 }, { name: "R2_CHATTY_46", id: 2357 }, { name: "R2_CHATTY_47", id: 2368 }, { name: "R2_CHATTY_48", id: 2377 }, { name: "R2_CHATTY_49", id: 2387 }, { name: "R2_CHATTY_5", id: 2399 }, { name: "R2_CHATTY_50", id: 2413 }, { name: "R2_CHATTY_51", id: 2424 }, { name: "R2_CHATTY_52", id: 2439 }, { name: "R2_CHATTY_53", id: 2452 }, { name: "R2_CHATTY_54", id: 2457 }, { name: "R2_CHATTY_55", id: 2463 }, { name: "R2_CHATTY_56", id: 2474 }, { name: "R2_CHATTY_57", id: 2492 }, { name: "R2_CHATTY_58", id: 2509 }, { name: "R2_CHATTY_59", id: 2519 }, { name: "R2_CHATTY_6", id: 2524 }, { name: "R2_CHATTY_60", id: 2535 }, { name: "R2_CHATTY_61", id: 2543 }, { name: "R2_CHATTY_62", id: 2554 }, { name: "R2_CHATTY_7", id: 2562 }, { name: "R2_CHATTY_8", id: 2572 }, { name: "R2_CHATTY_9", id: 2579 },
+            { name: "R2_ENGAGE_HYPER_DRIVE", id: 2586 },
+            { name: "R2_EXCITED_1", id: 2600 }, { name: "R2_EXCITED_10", id: 2615 }, { name: "R2_EXCITED_11", id: 2633 }, { name: "R2_EXCITED_12", id: 2644 }, { name: "R2_EXCITED_13", id: 2654 }, { name: "R2_EXCITED_14", id: 2662 }, { name: "R2_EXCITED_15", id: 2680 }, { name: "R2_EXCITED_16", id: 2691 }, { name: "R2_EXCITED_2", id: 2708 }, { name: "R2_EXCITED_3", id: 2726 }, { name: "R2_EXCITED_4", id: 2730 }, { name: "R2_EXCITED_5", id: 2736 }, { name: "R2_EXCITED_6", id: 2753 }, { name: "R2_EXCITED_7", id: 2767 }, { name: "R2_EXCITED_8", id: 2777 }, { name: "R2_EXCITED_9", id: 2787 },
+            { name: "R2_HEAD_SPIN", id: 2797 },
+            { name: "R2_HEY_1", id: 2813 }, { name: "R2_HEY_10", id: 2824 }, { name: "R2_HEY_11", id: 2828 }, { name: "R2_HEY_12", id: 2833 }, { name: "R2_HEY_2", id: 2841 }, { name: "R2_HEY_3", id: 2856 }, { name: "R2_HEY_4", id: 2861 }, { name: "R2_HEY_5", id: 2882 }, { name: "R2_HEY_6", id: 2893 }, { name: "R2_HEY_7", id: 2898 }, { name: "R2_HEY_8", id: 2904 }, { name: "R2_HEY_9", id: 2912 },
+            { name: "R2_LAUGH_1", id: 2919 }, { name: "R2_LAUGH_2", id: 2935 }, { name: "R2_LAUGH_3", id: 2950 }, { name: "R2_LAUGH_4", id: 2955 },
+            { name: "R2_MOTOR", id: 2970 },
+            { name: "R2_NEGATIVE_1", id: 3101 }, { name: "R2_NEGATIVE_10", id: 3111 }, { name: "R2_NEGATIVE_11", id: 3115 }, { name: "R2_NEGATIVE_12", id: 3121 }, { name: "R2_NEGATIVE_13", id: 3132 }, { name: "R2_NEGATIVE_14", id: 3136 }, { name: "R2_NEGATIVE_15", id: 3148 }, { name: "R2_NEGATIVE_16", id: 3152 }, { name: "R2_NEGATIVE_17", id: 3157 }, { name: "R2_NEGATIVE_18", id: 3164 }, { name: "R2_NEGATIVE_19", id: 3167 }, { name: "R2_NEGATIVE_2", id: 3172 }, { name: "R2_NEGATIVE_20", id: 3178 }, { name: "R2_NEGATIVE_21", id: 3191 }, { name: "R2_NEGATIVE_22", id: 3200 }, { name: "R2_NEGATIVE_23", id: 3213 }, { name: "R2_NEGATIVE_24", id: 3219 }, { name: "R2_NEGATIVE_25", id: 3226 }, { name: "R2_NEGATIVE_26", id: 3230 }, { name: "R2_NEGATIVE_27", id: 3233 }, { name: "R2_NEGATIVE_28", id: 3241 }, { name: "R2_NEGATIVE_3", id: 3251 }, { name: "R2_NEGATIVE_4", id: 3258 }, { name: "R2_NEGATIVE_5", id: 3263 }, { name: "R2_NEGATIVE_6", id: 3268 }, { name: "R2_NEGATIVE_7", id: 3274 }, { name: "R2_NEGATIVE_8", id: 3282 }, { name: "R2_NEGATIVE_9", id: 3291 },
+            { name: "R2_POSITIVE_1", id: 3302 }, { name: "R2_POSITIVE_10", id: 3309 }, { name: "R2_POSITIVE_11", id: 3318 }, { name: "R2_POSITIVE_12", id: 3326 }, { name: "R2_POSITIVE_13", id: 3340 }, { name: "R2_POSITIVE_14", id: 3353 }, { name: "R2_POSITIVE_15", id: 3358 }, { name: "R2_POSITIVE_16", id: 3364 }, { name: "R2_POSITIVE_17", id: 3369 }, { name: "R2_POSITIVE_18", id: 3375 }, { name: "R2_POSITIVE_19", id: 3388 }, { name: "R2_POSITIVE_2", id: 3394 }, { name: "R2_POSITIVE_20", id: 3403 }, { name: "R2_POSITIVE_21", id: 3410 }, { name: "R2_POSITIVE_22", id: 3422 }, { name: "R2_POSITIVE_23", id: 3434 }, { name: "R2_POSITIVE_3", id: 3439 }, { name: "R2_POSITIVE_4", id: 3446 }, { name: "R2_POSITIVE_5", id: 3449 }, { name: "R2_POSITIVE_6", id: 3454 }, { name: "R2_POSITIVE_7", id: 3460 }, { name: "R2_POSITIVE_8", id: 3471 }, { name: "R2_POSITIVE_9", id: 3478 },
+            { name: "R2_SAD_1", id: 3484 }, { name: "R2_SAD_10", id: 3495 }, { name: "R2_SAD_11", id: 3518 }, { name: "R2_SAD_12", id: 3526 }, { name: "R2_SAD_13", id: 3536 }, { name: "R2_SAD_14", id: 3543 }, { name: "R2_SAD_15", id: 3553 }, { name: "R2_SAD_16", id: 3561 }, { name: "R2_SAD_17", id: 3570 }, { name: "R2_SAD_18", id: 3593 }, { name: "R2_SAD_19", id: 3600 }, { name: "R2_SAD_2", id: 3608 }, { name: "R2_SAD_20", id: 3612 }, { name: "R2_SAD_21", id: 3619 }, { name: "R2_SAD_22", id: 3632 }, { name: "R2_SAD_23", id: 3639 }, { name: "R2_SAD_24", id: 3649 }, { name: "R2_SAD_25", id: 3661 }, { name: "R2_SAD_3", id: 3686 }, { name: "R2_SAD_4", id: 3693 }, { name: "R2_SAD_5", id: 3703 }, { name: "R2_SAD_6", id: 3739 }, { name: "R2_SAD_7", id: 3755 }, { name: "R2_SAD_8", id: 3782 }, { name: "R2_SAD_9", id: 3790 },
+            { name: "R2_SCREAM", id: 3797 }, { name: "R2_SCREAM_2", id: 3810 },
+            { name: "R2_SHORT_OUT", id: 3825 },
+            { name: "R2Q5_ALARM_1", id: 3864 }, { name: "R2Q5_ALARM_2", id: 3869 },
+            { name: "R2Q5_CHATTY_1", id: 3875 }, { name: "R2Q5_CHATTY_2", id: 3891 },
+            { name: "R2Q5_HEY_1", id: 3896 }, { name: "R2Q5_HEY_2", id: 3901 },
+            { name: "R2Q5_NEGATIVE_1", id: 3907 },
+            { name: "R2Q5_POSITIVE_1", id: 3914 }, { name: "R2Q5_POSITIVE_2", id: 3920 },
+            { name: "R2Q5_SAD_1", id: 3925 },
+            { name: "R2Q5_SHUTDOWN", id: 3929 },
+            { name: "BB9E_EXTRA_1", id: 3941 }, { name: "BB9E_EXTRA_2", id: 4021 }, { name: "BB9E_EXTRA_3", id: 4246 }, { name: "BB9E_EXTRA_4", id: 4568 }, { name: "BB9E_EXTRA_5", id: 4929 }, { name: "BB9E_EXTRA_6", id: 5156 }, { name: "BB9E_EXTRA_7", id: 5315 },
+            { name: "BB9E_HEAD_TURN_1", id: 5441 }, { name: "BB9E_HEAD_TURN_2", id: 5483 }, { name: "BB9E_HEAD_TURN_3", id: 5513 }
         ];
 
-        sounds.forEach((snd, i) => {
-            const btn = document.createElement('button');
-            btn.id = `sound-btn-${i}`;
-            btn.className = "px-2 py-2 bg-gray-800 border border-pink-900 rounded text-[7px] font-bold text-pink-200 w-[60px] uppercase hover:bg-pink-900/50 transition-colors";
-            btn.textContent = snd.name;
-            btn.onclick = () => {
-                if (!isConnected) return;
-                const el = document.getElementById(`sound-btn-${i}`);
-                if (el) { el.classList.add('active-sound'); setTimeout(() => el.classList.remove('active-sound'), 150); }
-                playSound(snd.id); 
-            };
-            document.getElementById('soundGrid').appendChild(btn);
+        const soundSelect = document.getElementById('soundSelect');
+        sounds.forEach((snd) => {
+            const option = document.createElement('option');
+            option.value = snd.id;
+            option.textContent = snd.name.replace(/_/g, ' '); 
+            soundSelect.appendChild(option);
+        });
+
+        document.getElementById('playSoundBtn').addEventListener('click', () => {
+            const selectedId = parseInt(soundSelect.value);
+            if (isConnected && !isNaN(selectedId)) {
+                playSound(selectedId);
+                
+                // Add a brief active effect to the play button for visual feedback
+                const btn = document.getElementById('playSoundBtn');
+                btn.classList.add('active-sound'); 
+                setTimeout(() => btn.classList.remove('active-sound'), 150);
+            }
         });
 
         // --- GENTLE JOYSTICK LOGIC ---
