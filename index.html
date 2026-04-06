@@ -99,7 +99,7 @@
 
             async connect(statusElement) {
                 try {
-                    statusElement.innerText = "Status: Requesting Bluetooth...";
+                    statusElement.innerText = "Status: Requesting Bluetooth (Select your Droid)...";
                     
                     // Request device from browser (Looks for R2-D2 or D2-xx identifiers)
                     this.device = await navigator.bluetooth.requestDevice({
@@ -107,21 +107,23 @@
                         optionalServices: [this.SERVICE_UUID]
                     });
 
-                    statusElement.innerText = "Status: Connecting to GATT Server...";
+                    statusElement.innerText = "Status: Device selected! Connecting to GATT Server...";
                     this.server = await this.device.gatt.connect();
 
-                    statusElement.innerText = "Status: Fetching Services...";
+                    statusElement.innerText = "Status: GATT connected! Fetching Services...";
                     const service = await this.server.getPrimaryService(this.SERVICE_UUID);
                     
+                    statusElement.innerText = "Status: Service found! Fetching Characteristics...";
                     this.antiDosChar = await service.getCharacteristic(this.ANTIDOS_UUID);
                     this.apiChar = await service.getCharacteristic(this.API_UUID);
 
-                    statusElement.innerText = "Status: Unlocking Droid...";
+                    statusElement.innerText = "Status: Sending Unlock/Anti-DOS Handshake...";
                     // Sphero requires a specific handshake string sent to the Anti-DOS characteristic
                     const unlockString = "usetheforce...band";
                     const unlockBytes = new TextEncoder().encode(unlockString);
                     await this.antiDosChar.writeValue(unlockBytes);
 
+                    statusElement.innerText = "Status: Waking up Droid...";
                     // Wait a moment, then wake up the droid
                     await new Promise(r => setTimeout(r, 500));
                     await this.wake();
@@ -133,10 +135,12 @@
                     if (error.name === 'SecurityError') {
                         statusElement.innerHTML = `Status: Blocked by Permissions.<br><span style="font-size:0.9em; color:#ffaa00;">Embedded preview windows block Bluetooth. To connect to a real device, you must save this code as an .html file and open it natively in the Meta Quest Browser.</span>`;
                     } else if (error.name === 'NotFoundError') {
-                        statusElement.innerText = "Status: Bluetooth connection cancelled.";
+                        statusElement.innerHTML = `Status: Bluetooth connection cancelled.<br><span style="font-size:0.9em; color:#ffaa00;">Edge/Windows 11 issue: The browser thinks the device is already paired or the prompt was cancelled. Check Device Manager for hidden devices.</span>`;
+                    } else if (error.name === 'NetworkError') {
+                        statusElement.innerHTML = `Status: GATT Network Error.<br><span style="font-size:0.9em; color:#ffaa00;">Failed to establish a GATT connection. Try turning the Droid off and on again.</span>`;
                     } else {
                         console.error(error);
-                        statusElement.innerText = "Status: Error - " + error.message;
+                        statusElement.innerHTML = `Status: Error - ${error.message}<br><span style="font-size:0.9em; color:#ffaa00;">Check browser console for details.</span>`;
                     }
                     return false;
                 }
