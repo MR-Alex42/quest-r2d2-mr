@@ -133,11 +133,31 @@
                     this.statusEl.innerText = "Status: Device selected! Connecting to GATT Server...";
                     this.server = await this.device.gatt.connect();
 
-                    // CRITICAL FIX FOR QUEST/ANDROID: 
-                    // Do not ask for services immediately. The OS needs time to map the GATT table.
-                    // If we ask too early and trigger a NotFoundError, the Android connection object breaks completely.
-                    this.statusEl.innerText = "Status: GATT connected! Stabilizing connection (waiting 2.5s)...";
-                    await new Promise(r => setTimeout(r, 2500));
+                    // --- QUEST/ANDROID FIX: THE POLLING LOOP ---
+                    // Instead of asking for a specific service (which crashes Android if it's not ready), 
+                    // we ask for ALL services in a loop until Android populates the GATT table.
+                    this.statusEl.innerText = "Status: Polling Android GATT table...";
+                    let services = [];
+                    let attempts = 0;
+                    while (attempts < 10) {
+                        try {
+                            services = await this.server.getPrimaryServices();
+                            // Check if our specific Anti-DOS service is in the list yet
+                            if (services.find(s => s.uuid === this.ANTIDOS_SERVICE_UUID)) {
+                                break; 
+                            }
+                        } catch (e) {
+                            // Suppress errors during polling, the OS is just busy.
+                        }
+                        attempts++;
+                        this.statusEl.innerText = `Status: Polling Android GATT table... (Attempt ${attempts}/10)`;
+                        await new Promise(r => setTimeout(r, 500));
+                    }
+
+                    if (!services.find(s => s.uuid === this.ANTIDOS_SERVICE_UUID)) {
+                        throw new Error("Polling timeout: The Quest OS never exposed the Sphero services.");
+                    }
+                    // ------------------------------------------
 
                     this.statusEl.innerText = "Status: Fetching Anti-DOS Service...";
                     const antiDosService = await this.server.getPrimaryService(this.ANTIDOS_SERVICE_UUID);
@@ -151,7 +171,13 @@
                     // Sphero requires a specific handshake string sent to the Anti-DOS characteristic
                     const unlockString = "usetheforce...band";
                     const unlockBytes = new TextEncoder().encode(unlockString);
-                    await this.antiDosChar.writeValue(unlockBytes);
+                    
+                    // Use modern write methods to prevent Chromium deprecation drops
+                    if (this.antiDosChar.writeValueWithResponse) {
+                        await this.antiDosChar.writeValueWithResponse(unlockBytes);
+                    } else {
+                        await this.antiDosChar.writeValue(unlockBytes);
+                    }
 
                     this.statusEl.innerText = "Status: Waking up Droid...";
                     // Wait a moment for unlock to process, then wake up the droid
@@ -164,6 +190,8 @@
                 } catch (error) {
                     if (error.name === 'SecurityError') {
                         this.statusEl.innerHTML = `Status: Blocked by Permissions.<br><span style="font-size:0.9em; color:#ffaa00;">Embedded preview windows block Bluetooth. To connect to a real device, you must save this code as an .html file and open it natively in the Meta Quest Browser.</span>`;
+                    } else if (error.message.includes("Polling timeout")) {
+                        this.statusEl.innerHTML = `Status: GATT Timeout.<br><span style="font-size:0.9em; color:#ffaa00;">The Quest OS connected but wouldn't list the services. Turn the droid off/on and try again.</span>`;
                     } else if (error.name === 'NotFoundError') {
                         this.statusEl.innerHTML = `Status: Service/Connection Not Found.<br><span style="font-size:0.9em; color:#ffaa00;">Error mapping characteristics. Ensure the droid is <strong>NOT</strong> paired in your OS settings. Turn it off/on and try again.</span>`;
                         console.error("NotFoundError Details:", error);
@@ -244,7 +272,12 @@
                 escapedPacket.push(EOP);
 
                 try {
-                    await this.apiChar.writeValue(new Uint8Array(escapedPacket));
+                    // Use modern Web Bluetooth standard for driving to avoid deprecation drops
+                    if (this.apiChar.writeValueWithoutResponse) {
+                        await this.apiChar.writeValueWithoutResponse(new Uint8Array(escapedPacket));
+                    } else {
+                        await this.apiChar.writeValue(new Uint8Array(escapedPacket));
+                    }
                 } catch (e) {
                     // Ignore GATT busy errors if sending too fast
                 }
