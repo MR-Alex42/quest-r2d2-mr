@@ -107,8 +107,12 @@
                 this.statusEl = null;
 
                 // Sphero BLE UUIDs
-                this.SERVICE_UUID = '00010001-574f-4f20-5370-6865726f2121';
+                // 1. Control Service & API
+                this.CONTROL_SERVICE_UUID = '00010001-574f-4f20-5370-6865726f2121';
                 this.API_UUID = '00010002-574f-4f20-5370-6865726f2121';
+                
+                // 2. Anti-DOS Service & Characteristic (Unlocking)
+                this.ANTIDOS_SERVICE_UUID = '00020001-574f-4f20-5370-6865726f2121';
                 this.ANTIDOS_UUID = '00020005-574f-4f20-5370-6865726f2121';
             }
 
@@ -118,9 +122,10 @@
                     this.statusEl.innerText = "Status: Requesting Bluetooth (Select your Droid)...";
                     
                     // Request device from browser (Looks for R2-D2 or D2-xx identifiers)
+                    // We must request BOTH services upfront, otherwise we get Permission errors later
                     this.device = await navigator.bluetooth.requestDevice({
                         filters: [{ namePrefix: 'R2-' }, { namePrefix: 'D2-' }, { namePrefix: 'D2' }],
-                        optionalServices: [this.SERVICE_UUID]
+                        optionalServices: [this.CONTROL_SERVICE_UUID, this.ANTIDOS_SERVICE_UUID]
                     });
 
                     // Add disconnect listener to catch Windows dropping the connection
@@ -131,16 +136,16 @@
 
                     this.statusEl.innerText = "Status: GATT connected! Waiting for Windows to map services...";
                     
-                    // CRITICAL FIX FOR WINDOWS: Wait 1.5 seconds before asking for services.
-                    // Windows reports "connected" before it actually finishes enumerating the GATT table.
+                    // Delay to let Windows enumerate the GATT table
                     await new Promise(r => setTimeout(r, 1500));
 
-                    this.statusEl.innerText = "Status: Fetching Services...";
-                    const service = await this.server.getPrimaryService(this.SERVICE_UUID);
-                    
-                    this.statusEl.innerText = "Status: Service found! Fetching Characteristics...";
-                    this.antiDosChar = await service.getCharacteristic(this.ANTIDOS_UUID);
-                    this.apiChar = await service.getCharacteristic(this.API_UUID);
+                    this.statusEl.innerText = "Status: Fetching Anti-DOS Service...";
+                    const antiDosService = await this.server.getPrimaryService(this.ANTIDOS_SERVICE_UUID);
+                    this.antiDosChar = await antiDosService.getCharacteristic(this.ANTIDOS_UUID);
+
+                    this.statusEl.innerText = "Status: Fetching Control Service...";
+                    const controlService = await this.server.getPrimaryService(this.CONTROL_SERVICE_UUID);
+                    this.apiChar = await controlService.getCharacteristic(this.API_UUID);
 
                     this.statusEl.innerText = "Status: Sending Unlock/Anti-DOS Handshake...";
                     // Sphero requires a specific handshake string sent to the Anti-DOS characteristic
@@ -160,7 +165,8 @@
                     if (error.name === 'SecurityError') {
                         this.statusEl.innerHTML = `Status: Blocked by Permissions.<br><span style="font-size:0.9em; color:#ffaa00;">Embedded preview windows block Bluetooth. To connect to a real device, you must save this code as an .html file and open it natively in the Meta Quest Browser.</span>`;
                     } else if (error.name === 'NotFoundError') {
-                        this.statusEl.innerHTML = `Status: Service/Connection Not Found.<br><span style="font-size:0.9em; color:#ffaa00;">Edge/Windows 11 issue: The browser couldn't find the Sphero service. Try turning the droid off/on, or check Device Manager for ghost pairings.</span>`;
+                        this.statusEl.innerHTML = `Status: Service/Connection Not Found.<br><span style="font-size:0.9em; color:#ffaa00;">Error mapping characteristics. Ensure your device is nearby. Turn the droid off/on, or check Device Manager.</span>`;
+                        console.error("NotFoundError Details:", error);
                     } else if (error.name === 'NetworkError') {
                         this.statusEl.innerHTML = `Status: GATT Network Error.<br><span style="font-size:0.9em; color:#ffaa00;">Failed to establish a GATT connection. Try turning the Droid off and on again.</span>`;
                     } else {
