@@ -91,7 +91,13 @@
         <!-- Navigation Section -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
             <div class="flex flex-col items-center gap-2 bg-gray-800/30 p-4 rounded-xl border border-cyan-900/30">
-                <p class="text-[10px] text-cyan-600 mb-2 uppercase tracking-widest font-bold">WASD Drive</p>
+                <div class="flex justify-between items-center w-full px-2 mb-1">
+                    <p class="text-[10px] text-cyan-600 uppercase tracking-widest font-bold m-0">WASD Drive</p>
+                    <label class="flex items-center gap-1 cursor-pointer bg-gray-900/80 px-2 py-1 rounded border border-cyan-900/50 hover:bg-gray-800 transition-colors" title="Hold Shift or Toggle to drive backward">
+                        <input type="checkbox" id="reverseToggle" class="accent-red-500 w-3 h-3" onchange="toggleReverse(this.checked)">
+                        <span class="text-[8px] text-red-400 uppercase font-bold">Rev (Shift)</span>
+                    </label>
+                </div>
                 <div class="grid grid-cols-3 gap-2 w-36">
                     <div></div><div id="key-w" class="w-10 h-10 bg-gray-800 border-2 border-cyan-900 rounded-lg flex items-center justify-center text-lg font-bold">W</div><div></div>
                     <div id="key-a" class="w-10 h-10 bg-gray-800 border-2 border-cyan-900 rounded-lg flex items-center justify-center text-lg font-bold">A</div>
@@ -269,7 +275,25 @@
         document.getElementById('disconnectBtn').addEventListener('click', async () => {
             try {
                 if (bluetoothDevice && bluetoothDevice.gatt.connected) {
-                    packetQueue = []; // Clear queue immediately
+                    // Proper off-switching sequence
+                    updateStatus("SHUTTING DOWN...", "text-yellow-500");
+                    
+                    // 1. Stop movement
+                    sendDrive(0, Math.round(currentHeading));
+                    
+                    // 2. Turn off all optical systems (Front, Rear, Logic, Holo)
+                    sendCmd(0x1A, 0x0E, [0x00, 0x07, 0, 0, 0]);
+                    sendCmd(0x1A, 0x0E, [0x00, 0x70, 0, 0, 0]);
+                    sendCmd(0x1A, 0x0E, [0x00, 0x08, 0]);
+                    sendCmd(0x1A, 0x0E, [0x00, 0x80, 0]);
+                    
+                    // 3. Send Sleep command (Power DID 0x13, Sleep CID 0x01)
+                    sendCmd(0x13, 0x01, [0x00, 0x00, 0x00, 0x00, 0x00]);
+                    
+                    // Wait for the queue to process the shutdown commands before cutting connection
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    
+                    packetQueue = []; // Clear queue
                     await bluetoothDevice.gatt.disconnect();
                 }
             } catch (error) {
@@ -376,8 +400,26 @@
         function resetDome() { document.getElementById('domeSlider').value = 0; updateDome(0); }
 
         // --- MOVEMENT ---
+        let isReverse = false;
+
+        function toggleReverse(val) {
+            isReverse = val;
+            const arrow = document.querySelector('#headingArrow div');
+            if (isReverse) {
+                arrow.classList.remove('border-b-cyan-400');
+                arrow.classList.add('border-b-red-500');
+            } else {
+                arrow.classList.remove('border-b-red-500');
+                arrow.classList.add('border-b-cyan-400');
+            }
+            if (isConnected && currentSpeed > 0) {
+                sendDrive(currentSpeed, Math.round(currentHeading));
+            }
+        }
+
         function sendDrive(speed, heading) {
-            sendCmd(0x16, 0x07, [speed, (heading >> 8) & 0xFF, heading & 0xFF, 0x00]);
+            const flags = isReverse ? 0x01 : 0x00;
+            sendCmd(0x16, 0x07, [speed, (heading >> 8) & 0xFF, heading & 0xFF, flags]);
         }
 
         function updateKeyboard() {
@@ -558,6 +600,12 @@
         window.addEventListener('keydown', (e) => {
             if (e.repeat) return;
             if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+            
+            if (e.key === 'Shift') {
+                document.getElementById('reverseToggle').checked = true;
+                toggleReverse(true);
+            }
+            
             if (['w','ArrowUp'].includes(e.key)) { keys.up = true; document.getElementById('key-w').classList.add('active-key'); }
             if (['a','ArrowLeft'].includes(e.key)) { keys.left = true; document.getElementById('key-a').classList.add('active-key'); }
             if (['s','ArrowDown'].includes(e.key)) { keys.down = true; document.getElementById('key-s').classList.add('active-key'); }
@@ -566,6 +614,12 @@
         });
         window.addEventListener('keyup', (e) => {
             if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+            
+            if (e.key === 'Shift') {
+                document.getElementById('reverseToggle').checked = false;
+                toggleReverse(false);
+            }
+            
             if (['w','ArrowUp'].includes(e.key)) { keys.up = false; document.getElementById('key-w').classList.remove('active-key'); }
             if (['a','ArrowLeft'].includes(e.key)) { keys.left = false; document.getElementById('key-a').classList.remove('active-key'); }
             if (['s','ArrowDown'].includes(e.key)) { keys.down = false; document.getElementById('key-s').classList.remove('active-key'); }
