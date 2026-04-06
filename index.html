@@ -2,386 +2,378 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>MR R2D2 Obstacle Course</title>
-    <!-- A-Frame VR/AR Framework -->
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R2-D2 Web Controller</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow: hidden; background-color: #000; }
-        #overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 9999;
-            color: #fff; text-align: center;
-            pointer-events: auto;
+        body {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            color: #22d3ee;
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none;
+            overflow-x: hidden;
         }
-        h1 { font-size: 2.5rem; margin-bottom: 10px; color: #4facfe; }
-        p { font-size: 1.2rem; max-width: 600px; line-height: 1.5; margin-bottom: 30px; }
-        button {
-            padding: 15px 40px; font-size: 1.5rem; font-weight: bold;
-            color: white; background: linear-gradient(45deg, #00f2fe, #4facfe);
-            border: none; border-radius: 30px; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
-            transition: transform 0.2s;
-        }
-        button:hover { transform: scale(1.05); }
-        button:disabled { background: #555; cursor: not-allowed; box-shadow: none; }
-        #status { margin-top: 20px; font-weight: bold; color: #00ff88; }
         
-        /* Hide A-Frame's default VR button, we will use custom AR entry */
-        .a-enter-vr { display: none !important; }
+        .active-key {
+            background-color: #0891b2 !important;
+            border-color: #67e8f9 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.6);
+        }
+
+        .active-anim {
+            background-color: #2563eb !important;
+            border-color: #93c5fd !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+        }
     </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
 
-    <!-- 2D Web UI Overlay for Bluetooth Pairing -->
-    <div id="overlay">
-        <h1>R2D2 MR Obstacle Course</h1>
-        <p>Ensure your Sphero R2D2 is charged, nearby, and turned on. <br>
-           Click below to pair via Bluetooth, then enter Mixed Reality.</p>
-        <button id="connectBtn">Connect to R2D2</button>
-        <button id="disconnectBtn" style="display: none; background: linear-gradient(45deg, #ff416c, #ff4b2b); font-size: 1.2rem; padding: 10px 30px;">Disconnect</button>
-        <button id="skipBtn" style="background: linear-gradient(45deg, #888, #aaa); margin-top: 10px; font-size: 1.2rem; padding: 10px 30px;">Test in VR (No Bluetooth)</button>
-        <div id="status">Status: Waiting for connection...</div>
+    <!-- Header Section -->
+    <header class="text-center mb-10 w-full max-w-2xl flex flex-col items-center">
+        <h1 class="text-4xl md:text-5xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)] mb-2">
+            ASTROMECH LINK
+        </h1>
+        <p class="text-sm md:text-base text-cyan-700 tracking-widest mb-6">SPHERO R2-D2 WEB BLUETOOTH INTERFACE</p>
         
-        <!-- Troubleshooting Guide -->
-        <details style="margin-top: 20px; text-align: left; max-width: 500px; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px;">
-            <summary style="cursor: pointer; color: #ffaa00; font-weight: bold;">Connection Troubleshooting</summary>
-            <ol style="font-size: 0.9rem; padding-left: 20px; line-height: 1.4; margin-top: 10px;">
-                <li><strong>Quest 3:</strong> Ensure the droid is <strong>NOT</strong> paired in the main Quest OS Bluetooth settings. If it says "Previously Connected", forget/unpair it.</li>
-                <li><strong>Windows 11:</strong> Open Device Manager &rarr; View &rarr; Show hidden devices. Look under Bluetooth, uninstall <em>D2-XXXX</em>.</li>
-                <li>Turn the droid completely off, wait 3 seconds, turn it back on.</li>
-                <li>Refresh this webpage and try connecting again.</li>
-            </ol>
-        </details>
+        <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+            <button id="connectBtn" class="bg-cyan-900 border border-cyan-400 hover:bg-cyan-800 text-cyan-100 px-8 py-3 rounded-md font-bold tracking-wider uppercase transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] w-full sm:w-auto">
+                Connect R2-D2
+            </button>
+            <button id="disconnectBtn" class="hidden bg-red-900 border border-red-500 hover:bg-red-800 text-red-100 px-8 py-3 rounded-md font-bold tracking-wider uppercase transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] w-full sm:w-auto">
+                Disconnect
+            </button>
+        </div>
 
-        <button id="enterARBtn" style="display: none; margin-top: 20px; background: linear-gradient(45deg, #ff0844, #ffb199);">Enter Mixed Reality</button>
-    </div>
+        <!-- Sandbox Error Message Box -->
+        <div id="sandboxWarning" class="hidden mt-6 border border-red-500 bg-red-900/80 p-4 rounded-md w-full text-left shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+            <p class="text-red-200 font-bold mb-2">⚠️ BLUETOOTH ACCESS BLOCKED</p>
+            <p class="text-sm text-red-100">
+                The preview environment restricts Web Bluetooth permissions for security reasons. 
+                To use this app, please <strong>download this code as an <code>.html</code> file</strong> and open it directly in a supported browser (Google Chrome or Microsoft Edge).
+            </p>
+        </div>
 
-    <!-- A-Frame 3D Scene (Transparent background enables Passthrough on Quest 3) -->
-    <a-scene webxr="optionalFeatures: dom-overlay; referenceSpaceType: local-floor;" background="transparent" renderer="alpha: true">
+        <div id="statusBox" class="mt-6 w-full border border-cyan-800 bg-gray-900/80 p-4 rounded-md">
+            <p id="statusText" class="text-yellow-400 font-bold">STATUS: STANDBY. Awaiting connection...</p>
+        </div>
+    </header>
+
+    <!-- Main Control Panel -->
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-10 items-center justify-items-center w-full max-w-4xl opacity-50 transition-opacity duration-500" id="controlPanel">
         
-        <!-- Virtual Obstacle Course Elements -->
-        <a-entity id="course">
-            <!-- Start Line -->
-            <a-box position="0 0.01 -1.5" width="2" height="0.02" depth="0.2" color="#00ff88" material="opacity: 0.8; transparent: true"></a-box>
-            <a-text value="START" position="0 0.5 -1.5" align="center" color="#00ff88" scale="1.5 1.5 1.5"></a-text>
+        <!-- Directional Pad (Visual) -->
+        <div class="flex flex-col items-center gap-2">
+            <p class="text-xs text-cyan-600 mb-2 uppercase tracking-widest">Navigation</p>
+            <div class="grid grid-cols-3 gap-2 w-48">
+                <div></div>
+                <div id="key-w" class="w-14 h-14 bg-gray-800 border-2 border-cyan-900 rounded-lg flex items-center justify-center text-xl font-bold transition-all">W</div>
+                <div></div>
+                <div id="key-a" class="w-14 h-14 bg-gray-800 border-2 border-cyan-900 rounded-lg flex items-center justify-center text-xl font-bold transition-all">A</div>
+                <div id="key-s" class="w-14 h-14 bg-gray-800 border-2 border-cyan-900 rounded-lg flex items-center justify-center text-xl font-bold transition-all">S</div>
+                <div id="key-d" class="w-14 h-14 bg-gray-800 border-2 border-cyan-900 rounded-lg flex items-center justify-center text-xl font-bold transition-all">D</div>
+            </div>
+            <p class="text-[10px] text-cyan-800 mt-2 text-center">Use WASD or Arrow Keys.<br/>Steering is relative to start orientation.</p>
+        </div>
 
-            <!-- Holographic Cones -->
-            <a-cone position="-1 0 -3" radius-bottom="0.2" radius-top="0" height="0.5" color="#ff0055" wireframe="true"></a-cone>
-            <a-cone position="1 0 -4" radius-bottom="0.2" radius-top="0" height="0.5" color="#ff0055" wireframe="true"></a-cone>
-            <a-cone position="-0.5 0 -5.5" radius-bottom="0.2" radius-top="0" height="0.5" color="#ff0055" wireframe="true"></a-cone>
+        <!-- Heading Indicator -->
+        <div class="flex flex-col items-center">
+            <div class="relative w-40 h-40 rounded-full border-4 border-cyan-900 flex items-center justify-center bg-gray-900 shadow-[inset_0_0_20px_rgba(6,182,212,0.1)]">
+                <div class="absolute inset-0 rounded-full border border-cyan-800 border-dashed animate-[spin_10s_linear_infinite] opacity-50"></div>
+                <div class="w-3 h-3 bg-cyan-400 rounded-full z-10 shadow-[0_0_10px_#22d3ee]"></div>
+                <!-- Rotational Arrow -->
+                <div id="headingArrow" class="absolute w-full h-full transition-transform duration-75 ease-linear pointer-events-none opacity-30">
+                    <div class="absolute top-4 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[20px] border-b-cyan-400 drop-shadow-[0_0_8px_#22d3ee]"></div>
+                </div>
+            </div>
+        </div>
 
-            <!-- Neon Tunnels/Rings to drive through -->
-            <a-torus position="0 0.25 -2.5" radius="0.4" tube="0.02" color="#00d2ff" rotation="0 0 0" material="emissive: #00d2ff; emissiveIntensity: 0.5"></a-torus>
-            <a-torus position="0.5 0.25 -4.5" radius="0.4" tube="0.02" color="#00d2ff" rotation="0 45 0" material="emissive: #00d2ff; emissiveIntensity: 0.5"></a-torus>
-            <a-torus position="-0.5 0.25 -6.5" radius="0.4" tube="0.02" color="#00d2ff" rotation="0 -45 0" material="emissive: #00d2ff; emissiveIntensity: 0.5"></a-torus>
-            
-            <!-- Finish Zone -->
-            <a-cylinder position="0 0.01 -8" radius="1" height="0.02" color="#ffdd00" material="opacity: 0.5; transparent: true"></a-cylinder>
-            <a-text value="FINISH" position="0 0.5 -8" align="center" color="#ffdd00" scale="2 2 2"></a-text>
-        </a-entity>
+        <!-- Action / Animation Buttons -->
+        <div class="flex flex-col items-center gap-2">
+            <p class="text-xs text-blue-500 mb-2 uppercase tracking-widest">Animatronics</p>
+            <div class="flex flex-col gap-3 w-48">
+                <button onclick="triggerAnim(1, 13)" id="key-1" class="px-4 py-2 bg-gray-800 border-2 border-blue-900 rounded-lg text-center font-bold transition-all hover:bg-gray-700 uppercase text-sm">1: Happy</button>
+                <button onclick="triggerAnim(2, 15)" id="key-2" class="px-4 py-2 bg-gray-800 border-2 border-blue-900 rounded-lg text-center font-bold transition-all hover:bg-gray-700 uppercase text-sm">2: Laugh</button>
+                <button onclick="triggerAnim(3, 22)" id="key-3" class="px-4 py-2 bg-gray-800 border-2 border-blue-900 rounded-lg text-center font-bold transition-all hover:bg-gray-700 uppercase text-sm">3: Scan</button>
+                <button onclick="triggerAnim(4, 21)" id="key-4" class="px-4 py-2 bg-gray-800 border-2 border-blue-900 rounded-lg text-center font-bold transition-all hover:bg-gray-700 uppercase text-sm">4: Affirmative</button>
+            </div>
+            <p class="text-[10px] text-blue-800 mt-2 text-center">Press 1-4 on keyboard<br/>to trigger expressions.</p>
+        </div>
 
-        <!-- Player & Controllers -->
-        <a-entity id="rig" position="0 0 0">
-            <a-camera position="0 1.6 0"></a-camera>
-            <!-- Left & Right Touch Controllers with our custom drive script attached -->
-            <a-entity id="leftController" oculus-touch-controls="hand: left" r2-drive-controller></a-entity>
-            <a-entity id="rightController" oculus-touch-controls="hand: right" r2-drive-controller></a-entity>
-        </a-entity>
-    </a-scene>
+    </main>
 
     <script>
-        // --- Sphero R2D2 BLE Protocol Driver ---
-        class SpheroR2D2 {
-            constructor() {
-                this.device = null;
-                this.server = null;
-                this.apiChar = null;
-                this.antiDosChar = null;
-                this.seq = 0x00;
-                this.connected = false;
-                this.statusEl = null;
-                this.onDisconnectCallback = null;
+        // --- SPHERO V2 BLUETOOTH CONSTANTS ---
+        // "WOO Sphero!!" hex encoding suffix
+        const SPHERO_UUID_BASE = "-574f-4f20-5370-6865726f2121"; 
+        const API_V2_SERVICE = "00010001" + SPHERO_UUID_BASE;
+        const API_V2_CHARACTERISTIC = "00010002" + SPHERO_UUID_BASE;
+        const ANTI_DOS_SERVICE = "00020001" + SPHERO_UUID_BASE;
+        const ANTI_DOS_CHARACTERISTIC = "00020005" + SPHERO_UUID_BASE;
 
-                // Sphero BLE UUIDs
-                // 1. Control Service & API
-                this.CONTROL_SERVICE_UUID = '00010001-574f-4f20-5370-6865726f2121';
-                this.API_UUID = '00010002-574f-4f20-5370-6865726f2121';
-                
-                // 2. Anti-DOS Service & Characteristic (Unlocking)
-                this.ANTIDOS_SERVICE_UUID = '00020001-574f-4f20-5370-6865726f2121';
-                this.ANTIDOS_UUID = '00020005-574f-4f20-5370-6865726f2121';
-            }
+        // --- STATE VARIABLES ---
+        let bluetoothDevice = null;
+        let controlChar = null;
+        let isConnected = false;
+        let seqNum = 0;
+        let packetQueue = [];
+        let isWriting = false;
 
-            async connect(statusElement) {
-                this.statusEl = statusElement;
-                try {
-                    this.statusEl.innerText = "Status: Requesting Bluetooth (Select your Droid)...";
-                    
-                    // Request device from browser (Looks for R2-D2 or D2-xx identifiers)
-                    this.device = await navigator.bluetooth.requestDevice({
-                        filters: [{ namePrefix: 'R2-' }, { namePrefix: 'D2-' }, { namePrefix: 'D2' }],
-                        optionalServices: [this.CONTROL_SERVICE_UUID, this.ANTIDOS_SERVICE_UUID]
-                    });
+        let keys = { up: false, down: false, left: false, right: false };
+        let currentSpeed = 0;
+        let currentHeading = 0;
+        let lastSpeed = -1;
+        let lastHeading = -1;
 
-                    // Add disconnect listener to catch Windows/Android dropping the connection or manual disconnects
-                    this.device.addEventListener('gattserverdisconnected', this.onDisconnected.bind(this));
-
-                    this.statusEl.innerText = "Status: Device selected! Connecting to GATT Server...";
-                    this.server = await this.device.gatt.connect();
-
-                    // --- QUEST/ANDROID FIX: THE POLLING LOOP ---
-                    // Instead of asking for a specific service (which crashes Android if it's not ready), 
-                    // we ask for ALL services in a loop until Android populates the GATT table.
-                    this.statusEl.innerText = "Status: Polling Android GATT table...";
-                    let services = [];
-                    let attempts = 0;
-                    while (attempts < 10) {
-                        try {
-                            services = await this.server.getPrimaryServices();
-                            // Check if our specific Anti-DOS service is in the list yet
-                            if (services.find(s => s.uuid === this.ANTIDOS_SERVICE_UUID)) {
-                                break; 
-                            }
-                        } catch (e) {
-                            // Suppress errors during polling, the OS is just busy.
-                        }
-                        attempts++;
-                        this.statusEl.innerText = `Status: Polling Android GATT table... (Attempt ${attempts}/10)`;
-                        await new Promise(r => setTimeout(r, 500));
-                    }
-
-                    if (!services.find(s => s.uuid === this.ANTIDOS_SERVICE_UUID)) {
-                        throw new Error("Polling timeout: The Quest OS never exposed the Sphero services.");
-                    }
-                    // ------------------------------------------
-
-                    this.statusEl.innerText = "Status: Fetching Anti-DOS Service...";
-                    const antiDosService = await this.server.getPrimaryService(this.ANTIDOS_SERVICE_UUID);
-                    this.antiDosChar = await antiDosService.getCharacteristic(this.ANTIDOS_UUID);
-
-                    this.statusEl.innerText = "Status: Fetching Control Service...";
-                    const controlService = await this.server.getPrimaryService(this.CONTROL_SERVICE_UUID);
-                    this.apiChar = await controlService.getCharacteristic(this.API_UUID);
-
-                    this.statusEl.innerText = "Status: Sending Unlock/Anti-DOS Handshake...";
-                    // Sphero requires a specific handshake string sent to the Anti-DOS characteristic
-                    const unlockString = "usetheforce...band";
-                    const unlockBytes = new TextEncoder().encode(unlockString);
-                    
-                    // Use modern write methods to prevent Chromium deprecation drops
-                    if (this.antiDosChar.writeValueWithResponse) {
-                        await this.antiDosChar.writeValueWithResponse(unlockBytes);
-                    } else {
-                        await this.antiDosChar.writeValue(unlockBytes);
-                    }
-
-                    this.statusEl.innerText = "Status: Waking up Droid...";
-                    // Wait a moment for unlock to process, then wake up the droid
-                    await new Promise(r => setTimeout(r, 600));
-                    await this.wake();
-
-                    this.connected = true;
-                    this.statusEl.innerText = "Status: R2D2 Connected and Awake!";
-                    return true;
-                } catch (error) {
-                    if (error.name === 'SecurityError') {
-                        this.statusEl.innerHTML = `Status: Blocked by Permissions.<br><span style="font-size:0.9em; color:#ffaa00;">Embedded preview windows block Bluetooth. To connect to a real device, you must save this code as an .html file and open it natively in the Meta Quest Browser.</span>`;
-                    } else if (error.message.includes("Polling timeout")) {
-                        this.statusEl.innerHTML = `Status: GATT Timeout.<br><span style="font-size:0.9em; color:#ffaa00;">The Quest OS connected but wouldn't list the services. Turn the droid off/on and try again.</span>`;
-                    } else if (error.name === 'NotFoundError') {
-                        this.statusEl.innerHTML = `Status: Service/Connection Not Found.<br><span style="font-size:0.9em; color:#ffaa00;">Error mapping characteristics. Ensure the droid is <strong>NOT</strong> paired in your OS settings. Turn it off/on and try again.</span>`;
-                        console.error("NotFoundError Details:", error);
-                    } else if (error.name === 'NetworkError') {
-                        this.statusEl.innerHTML = `Status: GATT Network Error.<br><span style="font-size:0.9em; color:#ffaa00;">Failed to establish a GATT connection. Try turning the Droid off and on again.</span>`;
-                    } else {
-                        console.error(error);
-                        this.statusEl.innerHTML = `Status: Error - ${error.message}<br><span style="font-size:0.9em; color:#ffaa00;">Check browser console for details.</span>`;
-                    }
-                    return false;
-                }
-            }
-
-            disconnect() {
-                if (this.device && this.device.gatt.connected) {
-                    this.statusEl.innerText = "Status: Disconnecting...";
-                    this.device.gatt.disconnect();
-                }
-            }
-
-            onDisconnected(event) {
-                this.connected = false;
-                console.warn('Bluetooth Device disconnected', event);
-                if (this.statusEl) {
-                    this.statusEl.innerHTML = `Status: Disconnected.<br><span style="font-size:0.9em; color:#ffaa00;">The device connection was closed.</span>`;
-                }
-                if (typeof this.onDisconnectCallback === 'function') {
-                    this.onDisconnectCallback();
-                }
-            }
-
-            // Sends wake command to power system
-            async wake() {
-                // Power DID: 0x13, Wake CID: 0x0D
-                await this.sendPacket(0x13, 0x0D, []);
-            }
-
-            // Drive command: speed (0-255) and heading (0-359 degrees)
-            async drive(speed, heading) {
-                if (!this.connected) return;
-                
-                // Drive DID: 0x16, Drive CID: 0x07
-                const headingMSB = (heading >> 8) & 0xFF;
-                const headingLSB = heading & 0xFF;
-                const driveFlags = 0x00; // 0x00 = forward
-                
-                await this.sendPacket(0x16, 0x07, [speed, headingMSB, headingLSB, driveFlags]);
-            }
-
-            // Low-level packet builder for Sphero API v2
-            async sendPacket(did, cid, data) {
-                if (!this.apiChar) return;
-
-                const SOP = 0x8D;
-                const EOP = 0xD8;
-                const ESC = 0xAB;
-                const FLAGS = 0x0A; // Request Resend & Reset Inactivity Timeout
-
-                let packet = [FLAGS, did, cid, this.seq++];
-                packet = packet.concat(data);
-
-                // Calculate Checksum
-                let chk = 0;
-                for (let i = 0; i < packet.length; i++) {
-                    chk += packet[i];
-                }
-                chk = (~chk) & 0xFF;
-                packet.push(chk);
-
-                // Escape reserved bytes (0x8D, 0xD8, 0xAB) in payload & checksum
-                let escapedPacket = [SOP];
-                for (let i = 0; i < packet.length; i++) {
-                    if (packet[i] === SOP) { escapedPacket.push(ESC, 0x05); }
-                    else if (packet[i] === EOP) { escapedPacket.push(ESC, 0x50); }
-                    else if (packet[i] === ESC) { escapedPacket.push(ESC, 0x23); }
-                    else { escapedPacket.push(packet[i]); }
-                }
-                escapedPacket.push(EOP);
-
-                try {
-                    // Use modern Web Bluetooth standard for driving to avoid deprecation drops
-                    if (this.apiChar.writeValueWithoutResponse) {
-                        await this.apiChar.writeValueWithoutResponse(new Uint8Array(escapedPacket));
-                    } else {
-                        await this.apiChar.writeValue(new Uint8Array(escapedPacket));
-                    }
-                } catch (e) {
-                    // Ignore GATT busy errors if sending too fast
-                }
-            }
+        // --- UI UPDATER ---
+        function updateStatus(msg, colorClass) {
+            const el = document.getElementById('statusText');
+            el.textContent = `STATUS: ${msg}`;
+            el.className = `font-bold ${colorClass}`;
         }
 
-        const r2d2 = new SpheroR2D2();
-        
-        // --- UI Interactions ---
-        const connectBtn = document.getElementById('connectBtn');
-        const disconnectBtn = document.getElementById('disconnectBtn');
-        const skipBtn = document.getElementById('skipBtn');
-        const enterARBtn = document.getElementById('enterARBtn');
-        const statusEl = document.getElementById('status');
-        const overlay = document.getElementById('overlay');
-        const sceneEl = document.querySelector('a-scene');
-
-        // Check if running inside an iframe (like a code preview window)
-        if (window.self !== window.top) {
-            statusEl.innerHTML = `Status: Preview Mode Active.<br><span style="font-size:0.9em; color:#ffaa00;">Bluetooth is blocked inside embedded previews. Use "Test in VR" below, or export the file to run it properly.</span>`;
-        }
-
-        // Handle UI resets on disconnect
-        r2d2.onDisconnectCallback = () => {
-            connectBtn.style.display = 'inline-block';
-            connectBtn.disabled = false;
-            disconnectBtn.style.display = 'none';
-            enterARBtn.style.display = 'none';
-            if (window.self === window.top) {
-                skipBtn.style.display = 'inline-block';
+        // --- BROWSER CHECK ---
+        window.onload = () => {
+            if (!navigator.bluetooth) {
+                updateStatus("Web Bluetooth not supported. Please use Chrome/Edge on Desktop or Android.", "text-red-500");
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('connectBtn').classList.add('opacity-50', 'cursor-not-allowed');
             }
         };
 
-        connectBtn.addEventListener('click', async () => {
-            connectBtn.disabled = true;
-            skipBtn.style.display = 'none';
-            const success = await r2d2.connect(statusEl);
-            if (success) {
-                enterARBtn.style.display = 'block';
-                connectBtn.style.display = 'none';
-                disconnectBtn.style.display = 'inline-block';
-            } else {
-                connectBtn.disabled = false;
-                if (window.self === window.top) {
-                    skipBtn.style.display = 'inline-block';
-                }
-            }
-        });
-
-        disconnectBtn.addEventListener('click', () => {
-            r2d2.disconnect();
-        });
-
-        skipBtn.addEventListener('click', () => {
-            statusEl.innerText = "Status: Simulation Mode Active (No Bluetooth)";
-            enterARBtn.style.display = 'block';
-            connectBtn.style.display = 'none';
-            skipBtn.style.display = 'none';
-        });
-
-        enterARBtn.addEventListener('click', () => {
-            overlay.style.display = 'none'; // Hide UI
-            sceneEl.enterVR(); // In A-Frame, enterVR() will trigger AR if supported by xr-mode-ui
-        });
-
-        // --- A-Frame Custom Component to Link Oculus Controllers to R2D2 ---
-        AFRAME.registerComponent('r2-drive-controller', {
-            init: function () {
-                this.lastCommandTime = 0;
-                // Listen to thumbstick events from the Oculus Touch controllers
-                this.el.addEventListener('thumbstickmoved', this.onThumbstick.bind(this));
-            },
-            onThumbstick: function (evt) {
-                if (!r2d2.connected) return;
-
-                const x = evt.detail.x;
-                const y = evt.detail.y;
-
-                // Deadzone logic
-                if (Math.abs(x) < 0.1 && Math.abs(y) < 0.1) {
-                    r2d2.drive(0, 0); // Stop
-                    return;
-                }
-
-                // Throttle BLE commands to max 10 times per second (~100ms)
-                // Sending too many BLE packets causes Gatt Busy errors.
-                const now = Date.now();
-                if (now - this.lastCommandTime < 100) return;
-                this.lastCommandTime = now;
-
-                // Convert X/Y to Speed and Heading
-                // Speed is vector magnitude (0 to 1) scaled to Sphero range (0 to 255)
-                let speed = Math.min(Math.sqrt(x*x + y*y) * 150, 255); // max 150 to keep it manageable indoors
+        // --- BLUETOOTH CONNECTION LOGIC ---
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            try {
+                // Hide warning if previously shown
+                document.getElementById('sandboxWarning').classList.add('hidden');
+                updateStatus("Requesting Astromech Device...", "text-yellow-400");
                 
-                // Heading is angle in degrees.
-                // In A-Frame thumbstick, pushing up gives y=-1.
-                // Math.atan2(x, -y) gives 0 rad straight ahead, +pi/2 right, etc.
-                let headingRadians = Math.atan2(x, -y);
-                let headingDegrees = Math.round(headingRadians * (180 / Math.PI));
-                if (headingDegrees < 0) headingDegrees += 360;
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [API_V2_SERVICE, ANTI_DOS_SERVICE]
+                });
 
-                r2d2.drive(Math.round(speed), headingDegrees);
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                updateStatus("Connecting to GATT Server...", "text-yellow-400");
+                const server = await bluetoothDevice.gatt.connect();
+
+                updateStatus("Bypassing Anti-DOS Protocol...", "text-yellow-400");
+                const antiDosService = await server.getPrimaryService(ANTI_DOS_SERVICE);
+                const antiDosChar = await antiDosService.getCharacteristic(ANTI_DOS_CHARACTERISTIC);
+                // The magic string to unlock Sphero Web Bluetooth toys
+                const unlockString = new TextEncoder().encode("usetheforce...band");
+                await antiDosChar.writeValue(unlockString);
+
+                updateStatus("Acquiring Control Channel...", "text-yellow-400");
+                const controlService = await server.getPrimaryService(API_V2_SERVICE);
+                controlChar = await controlService.getCharacteristic(API_V2_CHARACTERISTIC);
+
+                // Wake up droid
+                updateStatus("Waking up R2-D2...", "text-yellow-400");
+                await sendCmd(0x13, 0x0D, []); 
+
+                isConnected = true;
+                updateStatus("LINK ESTABLISHED. R2-D2 is ready.", "text-green-400");
+                
+                document.getElementById('connectBtn').classList.add('hidden');
+                document.getElementById('disconnectBtn').classList.remove('hidden');
+                document.getElementById('controlPanel').classList.remove('opacity-50');
+
+            } catch (error) {
+                console.error("GATT Error:", error);
+                
+                // Specifically detect the Canvas/iframe permissions block
+                if (error.name === 'SecurityError') {
+                    document.getElementById('sandboxWarning').classList.remove('hidden');
+                    updateStatus("BLOCKED: Download file to use Bluetooth.", "text-red-500");
+                } else if (error.name === 'NotFoundError') {
+                    updateStatus("Cancelled by user or no device found.", "text-yellow-500");
+                } else {
+                    updateStatus("Connection failed: " + error.message, "text-red-500");
+                }
             }
         });
+
+        document.getElementById('disconnectBtn').addEventListener('click', async () => {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                if (controlChar) {
+                    try {
+                        // Send Sleep command before disconnecting
+                        await sendCmd(0x13, 0x01, [0x20]); 
+                    } catch(e) {}
+                }
+                bluetoothDevice.gatt.disconnect();
+            }
+        });
+
+        function onDisconnected() {
+            isConnected = false;
+            controlChar = null;
+            packetQueue = [];
+            updateStatus("CONNECTION LOST. Returning to standby.", "text-red-500");
+            document.getElementById('connectBtn').classList.remove('hidden');
+            document.getElementById('disconnectBtn').classList.add('hidden');
+            document.getElementById('controlPanel').classList.add('opacity-50');
+            
+            // Reset UI
+            currentSpeed = 0;
+            document.getElementById('headingArrow').style.opacity = '0.3';
+        }
+
+        // --- SPHERO V2 PACKET ENCODER ---
+        function escapeBytes(payload) {
+            const escaped = [];
+            for (let i = 0; i < payload.length; i++) {
+                const b = payload[i];
+                if (b === 0x8D) escaped.push(0xAB, 0x05);
+                else if (b === 0xD8) escaped.push(0xAB, 0x50);
+                else if (b === 0xAB) escaped.push(0xAB, 0x23);
+                else escaped.push(b);
+            }
+            return escaped;
+        }
+
+        async function processQueue() {
+            if (isWriting || packetQueue.length === 0 || !controlChar) return;
+            isWriting = true;
+            const packet = packetQueue.shift();
+            try {
+                if (controlChar.properties.writeWithoutResponse) {
+                    await controlChar.writeValueWithoutResponse(packet);
+                } else {
+                    await controlChar.writeValue(packet);
+                }
+            } catch (e) {
+                console.error("GATT Write Error:", e);
+            }
+            isWriting = false;
+            if (packetQueue.length > 0) {
+                setTimeout(processQueue, 10);
+            }
+        }
+
+        function sendCmd(did, cid, data = []) {
+            if (!controlChar) return;
+
+            const flags = 0x0A; // Requests response and resets inactivity timeout
+            const seq = seqNum;
+            seqNum = (seqNum + 1) & 0xFF;
+
+            // Calculate Checksum: ~(flags + did + cid + seq + sum(data)) mod 256
+            let sum = flags + did + cid + seq;
+            for (let b of data) sum += b;
+            const chk = (~sum) & 0xFF;
+
+            const packet = [flags, did, cid, seq, ...data, chk];
+            const escaped = escapeBytes(packet);
+            const finalPacket = new Uint8Array([0x8D, ...escaped, 0xD8]);
+
+            packetQueue.push(finalPacket);
+            processQueue();
+        }
+
+        // --- MOVEMENT CONTROLS ---
+        function sendDriveCommand(speed, heading) {
+            const hMSB = (heading >> 8) & 0xFF;
+            const hLSB = heading & 0xFF;
+            const dirFlag = 0x00; // 0x00 = forward, 0x01 = backward
+            // Device ID 0x16 (Driving), Command ID 0x07 (Drive with Heading)
+            sendCmd(0x16, 0x07, [speed, hMSB, hLSB, dirFlag]);
+        }
+
+        function updateDrive() {
+            let x = 0;
+            let y = 0;
+
+            if (keys.up) y -= 1;
+            if (keys.down) y += 1;
+            if (keys.left) x -= 1;
+            if (keys.right) x += 1;
+
+            if (x === 0 && y === 0) {
+                currentSpeed = 0;
+            } else {
+                currentSpeed = 100; // Moderate speed (0-255)
+                // Convert Cartesian to relative Polar heading (0 = Up)
+                currentHeading = Math.atan2(y, x) * (180 / Math.PI) + 90;
+                if (currentHeading < 0) currentHeading += 360;
+            }
+
+            // Visual Arrow Update
+            const arrow = document.getElementById('headingArrow');
+            if (currentSpeed > 0) {
+                arrow.style.transform = `rotate(${currentHeading}deg)`;
+                arrow.style.opacity = '1';
+                arrow.classList.add('drop-shadow-[0_0_15px_#22d3ee]');
+            } else {
+                arrow.style.opacity = '0.3';
+                arrow.classList.remove('drop-shadow-[0_0_15px_#22d3ee]');
+            }
+
+            // Send command if state changed
+            if (isConnected && (currentSpeed !== lastSpeed || currentHeading !== lastHeading)) {
+                lastSpeed = currentSpeed;
+                lastHeading = currentHeading;
+                sendDriveCommand(currentSpeed, Math.round(currentHeading));
+            }
+        }
+
+        // Keep-alive loop to sustain continuous movement
+        setInterval(() => {
+            if (isConnected && currentSpeed > 0) {
+                sendDriveCommand(currentSpeed, Math.round(currentHeading));
+            }
+        }, 500);
+
+        // --- ANIMATRONICS CONTROLS ---
+        function triggerAnim(btnNum, animId) {
+            // Visual Flash
+            const el = document.getElementById(`key-${btnNum}`);
+            if (el) {
+                el.classList.add('active-anim');
+                setTimeout(() => el.classList.remove('active-anim'), 150);
+            }
+            if (!isConnected) return;
+            
+            // Device ID 0x17 (Animatronics), Command ID 0x05 (Animation Bundle)
+            sendCmd(0x17, 0x05, [0x00, animId]);
+        }
+
+        // --- KEYBOARD LISTENERS ---
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return; // Prevent key hold spam
+
+            let driveChanged = false;
+            if (e.key === 'w' || e.key === 'ArrowUp')    { keys.up = true; document.getElementById('key-w').classList.add('active-key'); driveChanged = true; }
+            if (e.key === 'a' || e.key === 'ArrowLeft')  { keys.left = true; document.getElementById('key-a').classList.add('active-key'); driveChanged = true; }
+            if (e.key === 's' || e.key === 'ArrowDown')  { keys.down = true; document.getElementById('key-s').classList.add('active-key'); driveChanged = true; }
+            if (e.key === 'd' || e.key === 'ArrowRight') { keys.right = true; document.getElementById('key-d').classList.add('active-key'); driveChanged = true; }
+
+            if (e.key === '1') triggerAnim(1, 13); // Happy
+            if (e.key === '2') triggerAnim(2, 15); // Laugh
+            if (e.key === '3') triggerAnim(3, 22); // Scan
+            if (e.key === '4') triggerAnim(4, 21); // Yes/Affirmative
+
+            if (driveChanged) updateDrive();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            let driveChanged = false;
+            if (e.key === 'w' || e.key === 'ArrowUp')    { keys.up = false; document.getElementById('key-w').classList.remove('active-key'); driveChanged = true; }
+            if (e.key === 'a' || e.key === 'ArrowLeft')  { keys.left = false; document.getElementById('key-a').classList.remove('active-key'); driveChanged = true; }
+            if (e.key === 's' || e.key === 'ArrowDown')  { keys.down = false; document.getElementById('key-s').classList.remove('active-key'); driveChanged = true; }
+            if (e.key === 'd' || e.key === 'ArrowRight') { keys.right = false; document.getElementById('key-d').classList.remove('active-key'); driveChanged = true; }
+            
+            if (driveChanged) updateDrive();
+        });
+
     </script>
 </body>
 </html>
