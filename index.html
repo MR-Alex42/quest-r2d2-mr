@@ -289,6 +289,8 @@
         }
 
         function updateDrive() {
+            if (isJoystickActive) return; // Yield to mouse/touch drive
+            
             let x = 0;
             let y = 0;
 
@@ -333,9 +335,9 @@
         }, 500);
 
         // --- ANIMATRONICS CONTROLS ---
-        function triggerAnim(btnNum, animId) {
+        function triggerAnim(animId) {
             // Visual Flash
-            const el = document.getElementById(`key-${btnNum}`);
+            const el = document.getElementById(`anim-btn-${animId}`);
             if (el) {
                 el.classList.add('active-anim');
                 setTimeout(() => el.classList.remove('active-anim'), 150);
@@ -345,6 +347,109 @@
             // Device ID 0x17 (Animatronics), Command ID 0x05 (Animation Bundle)
             sendCmd(0x17, 0x05, [0x00, animId]);
         }
+
+        // --- DYNAMIC UI GENERATION ---
+        function generateAnimations() {
+            const grid = document.getElementById('animGrid');
+            // Standard Sphero R2-D2 Animation ID map
+            const animNames = {
+                0: "Wake", 1: "Alarm", 2: "Angry", 3: "Annoyed", 4: "Chatty", 
+                5: "Drive", 6: "Excited", 7: "Frustrated", 8: "Happy", 9: "Laugh", 
+                10: "Sad", 11: "Scared", 12: "Sleep", 13: "Happy (Alt)", 14: "Yes", 
+                15: "Laugh (Alt)", 16: "Idle 1", 17: "Idle 2", 18: "Idle 3", 19: "Scan", 
+                20: "Patrol", 21: "Affirmative", 22: "Scan (Alt)", 23: "System Check", 24: "Power Down"
+            };
+
+            for (let i = 0; i <= 24; i++) {
+                const btn = document.createElement('button');
+                btn.id = `anim-btn-${i}`;
+                btn.className = "px-3 py-2 bg-gray-800 border border-blue-900 rounded text-center text-xs font-bold transition-all hover:bg-gray-700 text-blue-200 flex-grow max-w-[140px]";
+                btn.textContent = `${i}: ${animNames[i] || 'Anim'}`;
+                btn.onclick = () => triggerAnim(i);
+                grid.appendChild(btn);
+            }
+        }
+        generateAnimations();
+
+        // --- VIRTUAL JOYSTICK LOGIC ---
+        const joystickArea = document.getElementById('joystickArea');
+        const joystickNub = document.getElementById('joystickNub');
+        const headingArrow = document.getElementById('headingArrow');
+
+        function handleJoystickMove(e) {
+            if (!isJoystickActive) return;
+            e.preventDefault();
+
+            const rect = joystickArea.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            // Handle both Mouse and Touch
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const dx = clientX - centerX;
+            const dy = clientY - centerY;
+            const maxRadius = rect.width / 2;
+            
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            let angleRad = Math.atan2(dy, dx);
+            
+            // Constrain nub to radius
+            if (distance > maxRadius) {
+                distance = maxRadius;
+            }
+
+            // Move Nub
+            const nubX = Math.cos(angleRad) * distance;
+            const nubY = Math.sin(angleRad) * distance;
+            joystickNub.style.transform = `translate(${nubX}px, ${nubY}px)`;
+
+            // Calculate Speed & Heading
+            currentSpeed = Math.round((distance / maxRadius) * 255);
+            currentHeading = angleRad * (180 / Math.PI) + 90;
+            if (currentHeading < 0) currentHeading += 360;
+
+            // Visual Arrow Update
+            if (currentSpeed > 0) {
+                headingArrow.style.transform = `rotate(${currentHeading}deg)`;
+                headingArrow.style.opacity = '1';
+                headingArrow.classList.add('drop-shadow-[0_0_15px_#22d3ee]');
+            }
+
+            // Send command if state changed significantly (throttle slightly)
+            if (isConnected && (Math.abs(currentSpeed - lastSpeed) > 5 || Math.abs(currentHeading - lastHeading) > 5)) {
+                lastSpeed = currentSpeed;
+                lastHeading = currentHeading;
+                sendDriveCommand(currentSpeed, Math.round(currentHeading));
+            }
+        }
+
+        function handleJoystickEnd() {
+            if (!isJoystickActive) return;
+            isJoystickActive = false;
+            
+            // Reset Visuals
+            joystickNub.style.transform = `translate(0px, 0px)`;
+            headingArrow.style.opacity = '0.3';
+            headingArrow.classList.remove('drop-shadow-[0_0_15px_#22d3ee]');
+            
+            // Stop Droid
+            currentSpeed = 0;
+            if (isConnected) {
+                lastSpeed = currentSpeed;
+                sendDriveCommand(0, Math.round(currentHeading));
+            }
+        }
+
+        joystickArea.addEventListener('mousedown', (e) => { isJoystickActive = true; handleJoystickMove(e); });
+        window.addEventListener('mousemove', handleJoystickMove);
+        window.addEventListener('mouseup', handleJoystickEnd);
+
+        joystickArea.addEventListener('touchstart', (e) => { isJoystickActive = true; handleJoystickMove(e); }, {passive: false});
+        window.addEventListener('touchmove', handleJoystickMove, {passive: false});
+        window.addEventListener('touchend', handleJoystickEnd);
+        window.addEventListener('touchcancel', handleJoystickEnd);
 
         // --- KEYBOARD LISTENERS ---
         window.addEventListener('keydown', (e) => {
@@ -356,10 +461,11 @@
             if (e.key === 's' || e.key === 'ArrowDown')  { keys.down = true; document.getElementById('key-s').classList.add('active-key'); driveChanged = true; }
             if (e.key === 'd' || e.key === 'ArrowRight') { keys.right = true; document.getElementById('key-d').classList.add('active-key'); driveChanged = true; }
 
-            if (e.key === '1') triggerAnim(1, 13); // Happy
-            if (e.key === '2') triggerAnim(2, 15); // Laugh
-            if (e.key === '3') triggerAnim(3, 22); // Scan
-            if (e.key === '4') triggerAnim(4, 21); // Yes/Affirmative
+            // Map keys 1-4 to some distinct animations for convenience
+            if (e.key === '1') triggerAnim(13); // Happy
+            if (e.key === '2') triggerAnim(15); // Laugh
+            if (e.key === '3') triggerAnim(22); // Scan
+            if (e.key === '4') triggerAnim(21); // Yes/Affirmative
 
             if (driveChanged) updateDrive();
         });
