@@ -134,10 +134,10 @@
                     <button onclick="setStance(1)" class="px-4 py-3 bg-cyan-950 border border-cyan-700 rounded-lg font-bold hover:bg-cyan-900 transition-colors text-sm shadow-[0_0_10px_rgba(6,182,212,0.1)]">
                         2 Legs (Bipod)
                     </button>
-                    <button onclick="setStance(0)" class="px-4 py-3 bg-cyan-950 border border-cyan-700 rounded-lg font-bold hover:bg-cyan-900 transition-colors text-sm shadow-[0_0_10px_rgba(6,182,212,0.1)]">
+                    <button onclick="setStance(2)" class="px-4 py-3 bg-cyan-950 border border-cyan-700 rounded-lg font-bold hover:bg-cyan-900 transition-colors text-sm shadow-[0_0_10px_rgba(6,182,212,0.1)]">
                         3 Legs (Tripod)
                     </button>
-                    <button onclick="setStance(2)" class="px-4 py-3 bg-purple-950 border border-purple-700 rounded-lg font-bold hover:bg-purple-900 transition-colors text-sm text-purple-200 shadow-[0_0_10px_rgba(168,85,247,0.1)]">
+                    <button onclick="setStance(3)" class="px-4 py-3 bg-purple-950 border border-purple-700 rounded-lg font-bold hover:bg-purple-900 transition-colors text-sm text-purple-200 shadow-[0_0_10px_rgba(168,85,247,0.1)]">
                         Waddle Mode
                     </button>
                 </div>
@@ -256,6 +256,10 @@
                 const controlService = await server.getPrimaryService(API_V2_SERVICE);
                 controlChar = await controlService.getCharacteristic(API_V2_CHARACTERISTIC);
 
+                // CRITICAL FIX: We MUST subscribe to notifications or the bot ignores commands and sleeps!
+                await controlChar.startNotifications();
+                controlChar.addEventListener('characteristicvaluechanged', () => {}); // Empty listener to keep it happy
+
                 isConnected = true;
 
                 // Wake up droid - MUST target the Power Processor (0x11)
@@ -349,18 +353,17 @@
         }
 
         // CORE spherov2.js COMPATIBILITY FIX: 
-        // Sphero R2-D2 has dual processors. 
-        // targetId = 0x11 (Power/Radio), targetId = 0x12 (Motors/LEDs)
-        function sendCmd(did, cid, data = [], targetId = 0x12) {
+        // Sphero R2-D2 has dual processors. We must address them via Target ID and Source ID bytes.
+        // targetId = 0x11 (Power/Radio node), targetId = 0x12 (Motors/LEDs node). Defaults to 0x12 for toys.
+        function sendCmd(did, cid, data = [], targetId = 0x12, sourceId = 0x08) {
             if (!controlChar) return;
 
             // Flags: 0x3A = requestsResponse(0x02) | isActivityTimeoutReset(0x08) | hasTargetId(0x10) | hasSourceId(0x20)
             const flags = 0x3A; 
-            const sourceId = 0x01; // Application Client Node
             const seq = seqNum;
             seqNum = (seqNum + 1) & 0xFF;
 
-            // Calculate Checksum
+            // Calculate Checksum correctly for the 0x3A flag structure
             let sum = flags + targetId + sourceId + did + cid + seq;
             for (let b of data) sum += b;
             const chk = (~sum) & 0xFF;
@@ -391,7 +394,6 @@
         function updateLEDs() {
             if (!isConnected) return;
             
-            // Throttle LED updates to prevent GATT bottleneck
             if (ledTimeout) clearTimeout(ledTimeout);
             
             ledTimeout = setTimeout(() => {
@@ -401,32 +403,32 @@
                 const logicRGB = hexToRGB(document.getElementById('ledLogic').value, brightnessPercent);
                 const psiRGB = hexToRGB(document.getElementById('ledPSI').value, brightnessPercent);
                 
-                // spherov2.js R2-D2 LED Bitmasks:
-                // bit 6 (0x0040): Holo Projector
-                // bit 7 (0x0080): Front Logic Display
-                // bit 8 (0x0100): Rear Logic Display
-                // bit 9 (0x0200): Front PSI
-                // bit 10 (0x0400): Rear PSI
-                // Combined mask to address all of them: 0x07C0
-                const maskMSB = 0x07;
-                const maskLSB = 0xC0;
+                // CORRECT spherov2.js R2-D2 LED Bitmasks:
+                // bit 0: Front Holo Projector
+                // bit 1: Back Holo Projector
+                // bit 2: Logic Display
+                // bit 3: Front PSI
+                // bit 4: Rear PSI
+                // Total mask to address all of them: 0x001F
+                const maskMSB = 0x00;
+                const maskLSB = 0x1F;
 
                 // Device ID 0x1A (User IO), Command ID 0x0E (Set All LEDs)
-                // Appends the RGB bytes sequentially based on the flagged bits from lowest to highest
+                // Appends the RGB bytes sequentially mapping to bit0, bit1, bit2, bit3, bit4
                 sendCmd(0x1A, 0x0E, [
                     maskMSB, maskLSB, 
-                    ...holoRGB,  // bit 6
-                    ...logicRGB, // bit 7
-                    ...logicRGB, // bit 8
-                    ...psiRGB,   // bit 9
-                    ...psiRGB    // bit 10
+                    ...holoRGB,  // bit 0 (Front Holo)
+                    ...holoRGB,  // bit 1 (Back Holo)
+                    ...logicRGB, // bit 2 (Logic)
+                    ...psiRGB,   // bit 3 (Front PSI)
+                    ...psiRGB    // bit 4 (Rear PSI)
                 ]);
             }, 50);
         }
 
         function setStance(mode) {
             if (!isConnected) return;
-            // spherov2.js Stance Enums: 0 (Tripod), 1 (Bipod), 2 (Waddle)
+            // spherov2.js Stance Enums: 1 (Bipod), 2 (Tripod), 3 (Waddle)
             sendCmd(0x17, 0x02, [mode]);
         }
 
