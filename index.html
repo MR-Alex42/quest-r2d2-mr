@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>MR R2D2 Obstacle Course</title>
+    <!-- A-Frame VR/AR Framework -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; overflow: hidden; background-color: #000; }
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            color: #fff; text-align: center;
+            pointer-events: auto;
+        }
+        h1 { font-size: 2.5rem; margin-bottom: 10px; color: #4facfe; }
+        p { font-size: 1.2rem; max-width: 600px; line-height: 1.5; margin-bottom: 30px; }
+        button {
+            padding: 15px 40px; font-size: 1.5rem; font-weight: bold;
+            color: white; background: linear-gradient(45deg, #00f2fe, #4facfe);
+            border: none; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+            transition: transform 0.2s;
+        }
+        button:hover { transform: scale(1.05); }
+        button:disabled { background: #555; cursor: not-allowed; box-shadow: none; }
+        #status { margin-top: 20px; font-weight: bold; color: #00ff88; }
+        
+        /* Hide A-Frame's default VR button, we will use custom AR entry */
+        .a-enter-vr { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- 2D Web UI Overlay for Bluetooth Pairing -->
+    <div id="overlay">
+        <h1>R2D2 MR Obstacle Course</h1>
+        <p>Ensure your Sphero R2D2 is charged, nearby, and turned on. <br>
+           Click below to pair via Bluetooth, then enter Mixed Reality.</p>
+        <button id="connectBtn">Connect to R2D2</button>
+        <button id="skipBtn" style="background: linear-gradient(45deg, #888, #aaa); margin-top: 10px; font-size: 1.2rem; padding: 10px 30px;">Test in VR (No Bluetooth)</button>
+        <div id="status">Status: Waiting for connection...</div>
+        <button id="enterARBtn" style="display: none; margin-top: 20px; background: linear-gradient(45deg, #ff0844, #ffb199);">Enter Mixed Reality</button>
+    </div>
+
+    <!-- A-Frame 3D Scene (Transparent background enables Passthrough on Quest 3) -->
+    <a-scene webxr="optionalFeatures: dom-overlay; referenceSpaceType: local-floor;" background="transparent" renderer="alpha: true">
+        
+        <!-- Virtual Obstacle Course Elements -->
+        <a-entity id="course">
+            <!-- Start Line -->
+            <a-box position="0 0.01 -1.5" width="2" height="0.02" depth="0.2" color="#00ff88" material="opacity: 0.8; transparent: true"></a-box>
+            <a-text value="START" position="0 0.5 -1.5" align="center" color="#00ff88" scale="1.5 1.5 1.5"></a-text>
+
+            <!-- Holographic Cones -->
+            <a-cone position="-1 0 -3" radius-bottom="0.2" radius-top="0" height="0.5" color="#ff0055" wireframe="true"></a-cone>
+            <a-cone position="1 0 -4" radius-bottom="0.2" radius-top="0" height="0.5" color="#ff0055" wireframe="true"></a-cone>
+            <a-cone position="-0.5 0 -5.5" radius-bottom="0.2" radius-top="0" height="0.5" color="#ff0055" wireframe="true"></a-cone>
+
+            <!-- Neon Tunnels/Rings to drive through -->
+            <a-torus position="0 0.25 -2.5" radius="0.4" tube="0.02" color="#00d2ff" rotation="0 0 0" material="emissive: #00d2ff; emissiveIntensity: 0.5"></a-torus>
+            <a-torus position="0.5 0.25 -4.5" radius="0.4" tube="0.02" color="#00d2ff" rotation="0 45 0" material="emissive: #00d2ff; emissiveIntensity: 0.5"></a-torus>
+            <a-torus position="-0.5 0.25 -6.5" radius="0.4" tube="0.02" color="#00d2ff" rotation="0 -45 0" material="emissive: #00d2ff; emissiveIntensity: 0.5"></a-torus>
+            
+            <!-- Finish Zone -->
+            <a-cylinder position="0 0.01 -8" radius="1" height="0.02" color="#ffdd00" material="opacity: 0.5; transparent: true"></a-cylinder>
+            <a-text value="FINISH" position="0 0.5 -8" align="center" color="#ffdd00" scale="2 2 2"></a-text>
+        </a-entity>
+
+        <!-- Player & Controllers -->
+        <a-entity id="rig" position="0 0 0">
+            <a-camera position="0 1.6 0"></a-camera>
+            <!-- Left & Right Touch Controllers with our custom drive script attached -->
+            <a-entity id="leftController" oculus-touch-controls="hand: left" r2-drive-controller></a-entity>
+            <a-entity id="rightController" oculus-touch-controls="hand: right" r2-drive-controller></a-entity>
+        </a-entity>
+    </a-scene>
+
+    <script>
+        // --- Sphero R2D2 BLE Protocol Driver ---
+        class SpheroR2D2 {
+            constructor() {
+                this.device = null;
+                this.server = null;
+                this.apiChar = null;
+                this.antiDosChar = null;
+                this.seq = 0x00;
+                this.connected = false;
+
+                // Sphero BLE UUIDs
+                this.SERVICE_UUID = '00010001-574f-4f20-5370-6865726f2121';
+                this.API_UUID = '00010002-574f-4f20-5370-6865726f2121';
+                this.ANTIDOS_UUID = '00020005-574f-4f20-5370-6865726f2121';
+            }
+
+            async connect(statusElement) {
+                try {
+                    statusElement.innerText = "Status: Requesting Bluetooth...";
+                    
+                    // Request device from browser (Looks for R2-D2 or D2-xx identifiers)
+                    this.device = await navigator.bluetooth.requestDevice({
+                        filters: [{ namePrefix: 'R2-' }, { namePrefix: 'D2-' }, { namePrefix: 'D2' }],
+                        optionalServices: [this.SERVICE_UUID]
+                    });
+
+                    statusElement.innerText = "Status: Connecting to GATT Server...";
+                    this.server = await this.device.gatt.connect();
+
+                    statusElement.innerText = "Status: Fetching Services...";
+                    const service = await this.server.getPrimaryService(this.SERVICE_UUID);
+                    
+                    this.antiDosChar = await service.getCharacteristic(this.ANTIDOS_UUID);
+                    this.apiChar = await service.getCharacteristic(this.API_UUID);
+
+                    statusElement.innerText = "Status: Unlocking Droid...";
+                    // Sphero requires a specific handshake string sent to the Anti-DOS characteristic
+                    const unlockString = "usetheforce...band";
+                    const unlockBytes = new TextEncoder().encode(unlockString);
+                    await this.antiDosChar.writeValue(unlockBytes);
+
+                    // Wait a moment, then wake up the droid
+                    await new Promise(r => setTimeout(r, 500));
+                    await this.wake();
+
+                    this.connected = true;
+                    statusElement.innerText = "Status: R2D2 Connected and Awake!";
+                    return true;
+                } catch (error) {
+                    if (error.name === 'SecurityError') {
+                        statusElement.innerHTML = `Status: Blocked by Permissions.<br><span style="font-size:0.9em; color:#ffaa00;">Embedded preview windows block Bluetooth. To connect to a real device, you must save this code as an .html file and open it natively in the Meta Quest Browser.</span>`;
+                    } else if (error.name === 'NotFoundError') {
+                        statusElement.innerText = "Status: Bluetooth connection cancelled.";
+                    } else {
+                        console.error(error);
+                        statusElement.innerText = "Status: Error - " + error.message;
+                    }
+                    return false;
+                }
+            }
+
+            // Sends wake command to power system
+            async wake() {
+                // Power DID: 0x13, Wake CID: 0x0D
+                await this.sendPacket(0x13, 0x0D, []);
+            }
+
+            // Drive command: speed (0-255) and heading (0-359 degrees)
+            async drive(speed, heading) {
+                if (!this.connected) return;
+                
+                // Drive DID: 0x16, Drive CID: 0x07
+                const headingMSB = (heading >> 8) & 0xFF;
+                const headingLSB = heading & 0xFF;
+                const driveFlags = 0x00; // 0x00 = forward
+                
+                await this.sendPacket(0x16, 0x07, [speed, headingMSB, headingLSB, driveFlags]);
+            }
+
+            // Low-level packet builder for Sphero API v2
+            async sendPacket(did, cid, data) {
+                if (!this.apiChar) return;
+
+                const SOP = 0x8D;
+                const EOP = 0xD8;
+                const ESC = 0xAB;
+                const FLAGS = 0x0A; // Request Resend & Reset Inactivity Timeout
+
+                let packet = [FLAGS, did, cid, this.seq++];
+                packet = packet.concat(data);
+
+                // Calculate Checksum
+                let chk = 0;
+                for (let i = 0; i < packet.length; i++) {
+                    chk += packet[i];
+                }
+                chk = (~chk) & 0xFF;
+                packet.push(chk);
+
+                // Escape reserved bytes (0x8D, 0xD8, 0xAB) in payload & checksum
+                let escapedPacket = [SOP];
+                for (let i = 0; i < packet.length; i++) {
+                    if (packet[i] === SOP) { escapedPacket.push(ESC, 0x05); }
+                    else if (packet[i] === EOP) { escapedPacket.push(ESC, 0x50); }
+                    else if (packet[i] === ESC) { escapedPacket.push(ESC, 0x23); }
+                    else { escapedPacket.push(packet[i]); }
+                }
+                escapedPacket.push(EOP);
+
+                try {
+                    await this.apiChar.writeValue(new Uint8Array(escapedPacket));
+                } catch (e) {
+                    // Ignore GATT busy errors if sending too fast
+                }
+            }
+        }
+
+        const r2d2 = new SpheroR2D2();
+        
+        // --- UI Interactions ---
+        const connectBtn = document.getElementById('connectBtn');
+        const skipBtn = document.getElementById('skipBtn');
+        const enterARBtn = document.getElementById('enterARBtn');
+        const statusEl = document.getElementById('status');
+        const overlay = document.getElementById('overlay');
+        const sceneEl = document.querySelector('a-scene');
+
+        // Check if running inside an iframe (like a code preview window)
+        if (window.self !== window.top) {
+            statusEl.innerHTML = `Status: Preview Mode Active.<br><span style="font-size:0.9em; color:#ffaa00;">Bluetooth is blocked inside embedded previews. Use "Test in VR" below, or export the file to run it properly.</span>`;
+        }
+
+        connectBtn.addEventListener('click', async () => {
+            connectBtn.disabled = true;
+            skipBtn.style.display = 'none';
+            const success = await r2d2.connect(statusEl);
+            if (success) {
+                enterARBtn.style.display = 'block';
+                connectBtn.style.display = 'none';
+            } else {
+                connectBtn.disabled = false;
+                skipBtn.style.display = 'inline-block';
+            }
+        });
+
+        skipBtn.addEventListener('click', () => {
+            statusEl.innerText = "Status: Simulation Mode Active (No Bluetooth)";
+            enterARBtn.style.display = 'block';
+            connectBtn.style.display = 'none';
+            skipBtn.style.display = 'none';
+        });
+
+        enterARBtn.addEventListener('click', () => {
+            overlay.style.display = 'none'; // Hide UI
+            sceneEl.enterVR(); // In A-Frame, enterVR() will trigger AR if supported by xr-mode-ui
+        });
+
+        // --- A-Frame Custom Component to Link Oculus Controllers to R2D2 ---
+        AFRAME.registerComponent('r2-drive-controller', {
+            init: function () {
+                this.lastCommandTime = 0;
+                // Listen to thumbstick events from the Oculus Touch controllers
+                this.el.addEventListener('thumbstickmoved', this.onThumbstick.bind(this));
+            },
+            onThumbstick: function (evt) {
+                if (!r2d2.connected) return;
+
+                const x = evt.detail.x;
+                const y = evt.detail.y;
+
+                // Deadzone logic
+                if (Math.abs(x) < 0.1 && Math.abs(y) < 0.1) {
+                    r2d2.drive(0, 0); // Stop
+                    return;
+                }
+
+                // Throttle BLE commands to max 10 times per second (~100ms)
+                // Sending too many BLE packets causes Gatt Busy errors.
+                const now = Date.now();
+                if (now - this.lastCommandTime < 100) return;
+                this.lastCommandTime = now;
+
+                // Convert X/Y to Speed and Heading
+                // Speed is vector magnitude (0 to 1) scaled to Sphero range (0 to 255)
+                let speed = Math.min(Math.sqrt(x*x + y*y) * 150, 255); // max 150 to keep it manageable indoors
+                
+                // Heading is angle in degrees.
+                // In A-Frame thumbstick, pushing up gives y=-1.
+                // Math.atan2(x, -y) gives 0 rad straight ahead, +pi/2 right, etc.
+                let headingRadians = Math.atan2(x, -y);
+                let headingDegrees = Math.round(headingRadians * (180 / Math.PI));
+                if (headingDegrees < 0) headingDegrees += 360;
+
+                r2d2.drive(Math.round(speed), headingDegrees);
+            }
+        });
+    </script>
+</body>
+</html>
