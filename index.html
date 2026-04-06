@@ -44,6 +44,20 @@
         <button id="connectBtn">Connect to R2D2</button>
         <button id="skipBtn" style="background: linear-gradient(45deg, #888, #aaa); margin-top: 10px; font-size: 1.2rem; padding: 10px 30px;">Test in VR (No Bluetooth)</button>
         <div id="status">Status: Waiting for connection...</div>
+        
+        <!-- Windows 11 Troubleshooting Guide -->
+        <details style="margin-top: 20px; text-align: left; max-width: 500px; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px;">
+            <summary style="cursor: pointer; color: #ffaa00; font-weight: bold;">Windows 11 / Edge Troubleshooting</summary>
+            <ol style="font-size: 0.9rem; padding-left: 20px; line-height: 1.4; margin-top: 10px;">
+                <li>If the popup says "Gekoppelt" (Paired) next to the droid, the connection <strong>will fail</strong>.</li>
+                <li>Right-click your Windows Start button &rarr; <strong>Device Manager</strong>.</li>
+                <li>Click <strong>View</strong> &rarr; <strong>Show hidden devices</strong>.</li>
+                <li>Expand the <strong>Bluetooth</strong> category. Find <em>D2-XXXX</em>, right-click it, and select <strong>Uninstall device</strong>.</li>
+                <li>Turn the droid off, then turn it back on.</li>
+                <li>Refresh this webpage and try connecting again.</li>
+            </ol>
+        </details>
+
         <button id="enterARBtn" style="display: none; margin-top: 20px; background: linear-gradient(45deg, #ff0844, #ffb199);">Enter Mixed Reality</button>
     </div>
 
@@ -90,6 +104,7 @@
                 this.antiDosChar = null;
                 this.seq = 0x00;
                 this.connected = false;
+                this.statusEl = null;
 
                 // Sphero BLE UUIDs
                 this.SERVICE_UUID = '00010001-574f-4f20-5370-6865726f2121';
@@ -98,8 +113,9 @@
             }
 
             async connect(statusElement) {
+                this.statusEl = statusElement;
                 try {
-                    statusElement.innerText = "Status: Requesting Bluetooth (Select your Droid)...";
+                    this.statusEl.innerText = "Status: Requesting Bluetooth (Select your Droid)...";
                     
                     // Request device from browser (Looks for R2-D2 or D2-xx identifiers)
                     this.device = await navigator.bluetooth.requestDevice({
@@ -107,42 +123,59 @@
                         optionalServices: [this.SERVICE_UUID]
                     });
 
-                    statusElement.innerText = "Status: Device selected! Connecting to GATT Server...";
+                    // Add disconnect listener to catch Windows dropping the connection
+                    this.device.addEventListener('gattserverdisconnected', this.onDisconnected.bind(this));
+
+                    this.statusEl.innerText = "Status: Device selected! Connecting to GATT Server...";
                     this.server = await this.device.gatt.connect();
 
-                    statusElement.innerText = "Status: GATT connected! Fetching Services...";
+                    this.statusEl.innerText = "Status: GATT connected! Waiting for Windows to map services...";
+                    
+                    // CRITICAL FIX FOR WINDOWS: Wait 1.5 seconds before asking for services.
+                    // Windows reports "connected" before it actually finishes enumerating the GATT table.
+                    await new Promise(r => setTimeout(r, 1500));
+
+                    this.statusEl.innerText = "Status: Fetching Services...";
                     const service = await this.server.getPrimaryService(this.SERVICE_UUID);
                     
-                    statusElement.innerText = "Status: Service found! Fetching Characteristics...";
+                    this.statusEl.innerText = "Status: Service found! Fetching Characteristics...";
                     this.antiDosChar = await service.getCharacteristic(this.ANTIDOS_UUID);
                     this.apiChar = await service.getCharacteristic(this.API_UUID);
 
-                    statusElement.innerText = "Status: Sending Unlock/Anti-DOS Handshake...";
+                    this.statusEl.innerText = "Status: Sending Unlock/Anti-DOS Handshake...";
                     // Sphero requires a specific handshake string sent to the Anti-DOS characteristic
                     const unlockString = "usetheforce...band";
                     const unlockBytes = new TextEncoder().encode(unlockString);
                     await this.antiDosChar.writeValue(unlockBytes);
 
-                    statusElement.innerText = "Status: Waking up Droid...";
+                    this.statusEl.innerText = "Status: Waking up Droid...";
                     // Wait a moment, then wake up the droid
                     await new Promise(r => setTimeout(r, 500));
                     await this.wake();
 
                     this.connected = true;
-                    statusElement.innerText = "Status: R2D2 Connected and Awake!";
+                    this.statusEl.innerText = "Status: R2D2 Connected and Awake!";
                     return true;
                 } catch (error) {
                     if (error.name === 'SecurityError') {
-                        statusElement.innerHTML = `Status: Blocked by Permissions.<br><span style="font-size:0.9em; color:#ffaa00;">Embedded preview windows block Bluetooth. To connect to a real device, you must save this code as an .html file and open it natively in the Meta Quest Browser.</span>`;
+                        this.statusEl.innerHTML = `Status: Blocked by Permissions.<br><span style="font-size:0.9em; color:#ffaa00;">Embedded preview windows block Bluetooth. To connect to a real device, you must save this code as an .html file and open it natively in the Meta Quest Browser.</span>`;
                     } else if (error.name === 'NotFoundError') {
-                        statusElement.innerHTML = `Status: Bluetooth connection cancelled.<br><span style="font-size:0.9em; color:#ffaa00;">Edge/Windows 11 issue: The browser thinks the device is already paired or the prompt was cancelled. Check Device Manager for hidden devices.</span>`;
+                        this.statusEl.innerHTML = `Status: Service/Connection Not Found.<br><span style="font-size:0.9em; color:#ffaa00;">Edge/Windows 11 issue: The browser couldn't find the Sphero service. Try turning the droid off/on, or check Device Manager for ghost pairings.</span>`;
                     } else if (error.name === 'NetworkError') {
-                        statusElement.innerHTML = `Status: GATT Network Error.<br><span style="font-size:0.9em; color:#ffaa00;">Failed to establish a GATT connection. Try turning the Droid off and on again.</span>`;
+                        this.statusEl.innerHTML = `Status: GATT Network Error.<br><span style="font-size:0.9em; color:#ffaa00;">Failed to establish a GATT connection. Try turning the Droid off and on again.</span>`;
                     } else {
                         console.error(error);
-                        statusElement.innerHTML = `Status: Error - ${error.message}<br><span style="font-size:0.9em; color:#ffaa00;">Check browser console for details.</span>`;
+                        this.statusEl.innerHTML = `Status: Error - ${error.message}<br><span style="font-size:0.9em; color:#ffaa00;">Check browser console for details.</span>`;
                     }
                     return false;
+                }
+            }
+
+            onDisconnected(event) {
+                this.connected = false;
+                console.warn('Bluetooth Device disconnected', event);
+                if (this.statusEl) {
+                    this.statusEl.innerHTML = `Status: Disconnected.<br><span style="font-size:0.9em; color:#ffaa00;">The device dropped the connection. On Windows, this often happens if a ghost pairing still exists.</span>`;
                 }
             }
 
