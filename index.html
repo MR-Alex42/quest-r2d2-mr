@@ -62,7 +62,7 @@
         <h1 class="text-4xl md:text-5xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-cyan-400 drop-shadow-[0_0_10px_#22d3ee] mb-2">
             ASTROMECH LINK
         </h1>
-        <p class="text-xs text-cyan-700 tracking-widest mb-4">V2.8 SPHERO R2-D2 INTERFACE</p>
+        <p class="text-xs text-cyan-700 tracking-widest mb-4">V2.9 SPHERO R2-D2 INTERFACE</p>
         
         <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
             <button id="connectBtn" class="bg-cyan-900 border border-cyan-400 hover:bg-cyan-800 text-cyan-100 px-8 py-3 rounded-md font-bold tracking-wider uppercase transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] w-full sm:w-auto text-sm">
@@ -216,14 +216,12 @@
                 // 1. Anti-DOS Handshake
                 const antiDosService = await server.getPrimaryService(ANTI_DOS_SERVICE);
                 const antiDosChar = await antiDosService.getCharacteristic(ANTI_DOS_CHARACTERISTIC);
-                // FIX: writeValue is deprecated and fails in modern browsers. Use writeValueWithResponse explicitly.
                 await antiDosChar.writeValueWithResponse(new TextEncoder().encode("usetheforce...band"));
                 
                 // 2. Initialize Control Characteristic
                 const controlService = await server.getPrimaryService(API_V2_SERVICE);
                 controlChar = await controlService.getCharacteristic(API_V2_CHARACTERISTIC);
                 
-                // FIX: Mark as connected BEFORE sending commands so the packetQueue doesn't drop the Wake packet
                 isConnected = true; 
 
                 // 3. Send Wake Command (Required to keep connection alive)
@@ -308,7 +306,7 @@
             processQueue();
         }
 
-        // --- FIXED LED LOGIC (allLEDs Bitmask Method) ---
+        // --- FIXED LED LOGIC ---
         let ledThrottle = {};
         function updateLED(type) {
             if (!isConnected) return;
@@ -330,25 +328,26 @@
                         break;
                     case 'holoInt':
                         const hInt = parseInt(document.getElementById('ledHoloInt').value);
-                        // Using the requested payload structure specifically for Holo Projector
-                        sendCmd(0x1A, 0x0E, [0x00, 0x70, hInt]);
+                        // FIX: The Holo Projector specifically uses Bit 7 (0x80), not 0x70 which conflicts with the Rear LED.
+                        sendCmd(0x1A, 0x0E, [0x00, 0x80, hInt]);
                         break;
                 }
             }, 50);
         }
 
-        // --- AUDIO & VOLUME ---
+        // --- FIXED AUDIO & VOLUME ---
         function updateVolume(val) {
             const vol = parseInt(val);
             document.getElementById('volLabel').textContent = Math.round((vol / 255) * 100) + '%';
             sendCmd(0x1A, 0x08, [vol]);
         }
         function playSound(id) {
-            // DID: 0x1A, CID: 0x07 (Play Audio)
-            // Little Endian ID format + Mode Byte
-            const lsb = id & 0xFF;
+            // FIX: Sphero audio commands require Big Endian format.
+            // Earlier Little Endian formatting caused the droid to look for non-existent IDs,
+            // resulting in immediate aborts (10th of a second clicks).
             const msb = (id >> 8) & 0xFF;
-            sendCmd(0x1A, 0x07, [lsb, msb, 0x00]);
+            const lsb = id & 0xFF;
+            sendCmd(0x1A, 0x07, [msb, lsb, 0x00]);
         }
 
         // --- STANCE & DOME ---
@@ -388,9 +387,8 @@
             }
         }
 
-        // --- DYNAMIC UI POPULATION (WITH CORRECT IDS) ---
+        // --- DYNAMIC UI POPULATION ---
 
-        // Verified R2-D2 Animation Mappings
         const anims = [
             { name: "Alarm", id: 7 }, { name: "Angry", id: 8 }, { name: "Annoyed", id: 9 }, 
             { name: "Chatty", id: 10 }, { name: "Drive", id: 11 }, { name: "Excited", id: 12 }, 
@@ -409,7 +407,6 @@
             document.getElementById('animGrid').appendChild(btn);
         });
 
-        // Curated R2-D2 Authentic Sounds
         const sounds = [
             { name: "Alarm", id: 1737 }, { name: "Annoyed", id: 1910 }, { name: "Burnout", id: 1915 },
             { name: "Chatty", id: 1950 }, { name: "Hyperdrive", id: 2586 }, { name: "Excited", id: 2600 },
