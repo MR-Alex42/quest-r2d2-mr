@@ -46,15 +46,13 @@
         <button id="skipBtn" style="background: linear-gradient(45deg, #888, #aaa); margin-top: 10px; font-size: 1.2rem; padding: 10px 30px;">Test in VR (No Bluetooth)</button>
         <div id="status">Status: Waiting for connection...</div>
         
-        <!-- Windows 11 Troubleshooting Guide -->
+        <!-- Troubleshooting Guide -->
         <details style="margin-top: 20px; text-align: left; max-width: 500px; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px;">
-            <summary style="cursor: pointer; color: #ffaa00; font-weight: bold;">Windows 11 / Edge Troubleshooting</summary>
+            <summary style="cursor: pointer; color: #ffaa00; font-weight: bold;">Connection Troubleshooting</summary>
             <ol style="font-size: 0.9rem; padding-left: 20px; line-height: 1.4; margin-top: 10px;">
-                <li>If the popup says "Gekoppelt" (Paired) next to the droid, the connection <strong>will fail</strong>.</li>
-                <li>Right-click your Windows Start button &rarr; <strong>Device Manager</strong>.</li>
-                <li>Click <strong>View</strong> &rarr; <strong>Show hidden devices</strong>.</li>
-                <li>Expand the <strong>Bluetooth</strong> category. Find <em>D2-XXXX</em>, right-click it, and select <strong>Uninstall device</strong>.</li>
-                <li>Turn the droid off, then turn it back on.</li>
+                <li><strong>Quest 3:</strong> Ensure the droid is <strong>NOT</strong> paired in the main Quest OS Bluetooth settings. If it says "Previously Connected", forget/unpair it.</li>
+                <li><strong>Windows 11:</strong> Open Device Manager &rarr; View &rarr; Show hidden devices. Look under Bluetooth, uninstall <em>D2-XXXX</em>.</li>
+                <li>Turn the droid completely off, wait 3 seconds, turn it back on.</li>
                 <li>Refresh this webpage and try connecting again.</li>
             </ol>
         </details>
@@ -118,22 +116,6 @@
                 this.ANTIDOS_UUID = '00020005-574f-4f20-5370-6865726f2121';
             }
 
-            // Cross-platform helper to safely map GATT services
-            async getServiceWithRetry(uuid, retries = 4) {
-                for (let i = 0; i < retries; i++) {
-                    try {
-                        return await this.server.getPrimaryService(uuid);
-                    } catch (error) {
-                        if (error.name === 'NotFoundError' && i < retries - 1) {
-                            this.statusEl.innerText = `Status: GATT mapping... (Attempt ${i + 1})`;
-                            await new Promise(r => setTimeout(r, 600)); // wait before retrying
-                        } else {
-                            throw error; // out of retries, throw it
-                        }
-                    }
-                }
-            }
-
             async connect(statusElement) {
                 this.statusEl = statusElement;
                 try {
@@ -151,13 +133,18 @@
                     this.statusEl.innerText = "Status: Device selected! Connecting to GATT Server...";
                     this.server = await this.device.gatt.connect();
 
+                    // CRITICAL FIX FOR QUEST/ANDROID: 
+                    // Do not ask for services immediately. The OS needs time to map the GATT table.
+                    // If we ask too early and trigger a NotFoundError, the Android connection object breaks completely.
+                    this.statusEl.innerText = "Status: GATT connected! Stabilizing connection (waiting 2.5s)...";
+                    await new Promise(r => setTimeout(r, 2500));
+
                     this.statusEl.innerText = "Status: Fetching Anti-DOS Service...";
-                    // Use smart retry loop for cross-platform compatibility (Windows vs Quest/Android)
-                    const antiDosService = await this.getServiceWithRetry(this.ANTIDOS_SERVICE_UUID);
+                    const antiDosService = await this.server.getPrimaryService(this.ANTIDOS_SERVICE_UUID);
                     this.antiDosChar = await antiDosService.getCharacteristic(this.ANTIDOS_UUID);
 
                     this.statusEl.innerText = "Status: Fetching Control Service...";
-                    const controlService = await this.getServiceWithRetry(this.CONTROL_SERVICE_UUID);
+                    const controlService = await this.server.getPrimaryService(this.CONTROL_SERVICE_UUID);
                     this.apiChar = await controlService.getCharacteristic(this.API_UUID);
 
                     this.statusEl.innerText = "Status: Sending Unlock/Anti-DOS Handshake...";
@@ -167,8 +154,8 @@
                     await this.antiDosChar.writeValue(unlockBytes);
 
                     this.statusEl.innerText = "Status: Waking up Droid...";
-                    // Wait a moment, then wake up the droid
-                    await new Promise(r => setTimeout(r, 500));
+                    // Wait a moment for unlock to process, then wake up the droid
+                    await new Promise(r => setTimeout(r, 600));
                     await this.wake();
 
                     this.connected = true;
@@ -178,7 +165,7 @@
                     if (error.name === 'SecurityError') {
                         this.statusEl.innerHTML = `Status: Blocked by Permissions.<br><span style="font-size:0.9em; color:#ffaa00;">Embedded preview windows block Bluetooth. To connect to a real device, you must save this code as an .html file and open it natively in the Meta Quest Browser.</span>`;
                     } else if (error.name === 'NotFoundError') {
-                        this.statusEl.innerHTML = `Status: Service/Connection Not Found.<br><span style="font-size:0.9em; color:#ffaa00;">Error mapping characteristics. Ensure your device is nearby. Turn the droid off/on, or check Device Manager.</span>`;
+                        this.statusEl.innerHTML = `Status: Service/Connection Not Found.<br><span style="font-size:0.9em; color:#ffaa00;">Error mapping characteristics. Ensure the droid is <strong>NOT</strong> paired in your OS settings. Turn it off/on and try again.</span>`;
                         console.error("NotFoundError Details:", error);
                     } else if (error.name === 'NetworkError') {
                         this.statusEl.innerHTML = `Status: GATT Network Error.<br><span style="font-size:0.9em; color:#ffaa00;">Failed to establish a GATT connection. Try turning the Droid off and on again.</span>`;
